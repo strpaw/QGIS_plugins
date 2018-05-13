@@ -284,7 +284,9 @@ class InputDataSet:
         self.ep_name = ''
         self.ep_azm = None
         self.ep_dist = None
-    def assign_values(self,r_lat, r_lon, r_mag, o_lyr, ep_name, ep_azm, ep_dist):
+        self.f_in = ''
+        self.f_out = ''
+    def assign_values(self,r_lat, r_lon, r_mag, o_lyr, ep_name, ep_azm, ep_dist, f_in, f_out):
         self.r_lat = r_lat
         self.r_lon = r_lon
         self.r_mag = r_mag
@@ -292,6 +294,8 @@ class InputDataSet:
         self.ep_name = ep_name
         self.ep_azm = ep_azm
         self.ep_dist = ep_dist
+        self.f_in = f_in
+        self.f_out = f_out
 
 # Initialize InputDataSet variables
 in_data = InputDataSet()
@@ -458,18 +462,18 @@ class qgsAzmDist2LatLon:
         
     def val_input(self):
         """ Gets and validates if input data is correct"""
-        global in_data
+        global azm_dist_in
         val_result = True              # If input data is correct val_result will be set to False
         err_msg = ''
         # Assign input to variables
         rp_lat_dms = self.dlg.leRefLat.text()        # Latitude of the reference point
         rp_lon_dms = self.dlg.leRefLon.text()        # Longitude of the reference point
         rp_mv  = self.dlg.leRefMagVar.text()     # Magnetic variation of the reference point
-        lyr_out = self.dlg.leLyrOut.text()       # Output layer
+        lyr_out = self.dlg.leLyrOut.text() # Output layer
         ep_name = self.dlg.leEndPointName.text() # End (second) point name
         ep_azm  = self.dlg.leEndPointAzm.text()  # Azimuth to end (second) point
         ep_dist = self.dlg.leEndPointDist.text() # Distance to end (second) point
-        
+       
         r_lat = lat_DMS_shdp2DD(rp_lat_dms)
         r_lon = lon_DMS_shdp2DD(rp_lon_dms)
         # Check if input data is correct
@@ -511,7 +515,7 @@ class qgsAzmDist2LatLon:
             ep_azm = float(ep_azm) + r_mag # Correct by magnetic variation
             if ep_azm < 0:
                 ep_azm += 360
-            in_data.assign_values(r_lat, r_lon, r_mag, lyr_out, ep_name, ep_azm, float(ep_dist))
+            azm_dist_in.assign_single_point_mode(r_lat, r_lon, r_mag, ep_name, ep_azm, float(ep_dist), ep_dist_unit)
         else:
             QMessageBox.critical(w, "Message", err_msg)
             

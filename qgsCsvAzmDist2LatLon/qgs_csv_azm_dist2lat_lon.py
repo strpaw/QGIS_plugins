@@ -53,7 +53,7 @@ REGEX_LAT_DMS_shdp = re.compile(r'''^
                                 $''', re.VERBOSE)
 REGEX_LON_DMS_shdp = re.compile(r'''^
                                 (?P<hem>[EeWw])               # Hemisphere indicator
-                                (?P<deg>[0-1][0-7]\d|0\d\d|180)     # Degrees
+                                (?P<deg>[0-1][0-7]\d|180)     # Degreess
                                 (\s|-)                        # Delimiter
                                 (?P<min>[0-5]\d)              # Minutes
                                 (\s|-)                        # Delimiter
