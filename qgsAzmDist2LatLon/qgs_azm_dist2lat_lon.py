@@ -514,15 +514,14 @@ class qgsAzmDist2LatLon:
             ep_azm = float(ep_azm) + r_mag # Correct by magnetic variation
             if ep_azm < 0:
                 ep_azm += 360
-            input_data.assign_values(r_lat, r_lon, r_mag, ep_name, lyr_out, ep_azm, float(ep_dist))
+            input_data.assign_values(r_lat, r_lon, r_mag, lyr_out, ep_name, ep_azm, float(ep_dist))
         else:
             QMessageBox.critical(w, "Message", err_msg)
             
         return val_result
     def create_tmp_layer(self, l_name):
         """ Create temporary 'memory' layer to store results of calculations
-        Args:
-            l_name(string): layer name
+        :param l_name: string, layer name
         """
         l_name = l_name + '_tmp_memory'
         output_lyr = QgsVectorLayer('Point?crs=epsg:4326', l_name, 'memory')
@@ -536,12 +535,11 @@ class qgsAzmDist2LatLon:
         QgsMapLayerRegistry.instance().addMapLayers([output_lyr])
         
     def add_point(self):
-        """ Performs calculations and adds new point to the temporary (memory) layer
-        """
+        """ Performs calculations and adds new point to the temporary (memory) layer  """
         global input_data
         # If input is valid perform calculations and add point to layer
         if self.val_input(): # If input data is correct
-            """ Check if output_layer is on the layer list, if not - create layer and add rrefernce point and calculated point """
+            #Check if output_layer is on the layer list, if not - create layer and add rrefernce point and calculated point
             
             ep_lat_dd, ep_lon_dd = vincenty_direct_solution(input_data.r_lat, input_data.r_lon, input_data.ep_azm, input_data.ep_dist, WGS84_A, WGS84_B, WGS84_F)
             ep_lat_dms = dd2dms_shdp(ep_lat_dd, C_LAT)

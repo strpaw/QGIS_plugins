@@ -36,58 +36,60 @@ import math
 import csv
 import datetime
 
+
+
+import re
+import math
+import csv
+
+""" This section contains general constants, function to perform validation of input data and calculations """
+
 # Parameters of WGS84 ellipsoid
 WGS84_A = 6378137.0         # semi-major axis of the WGS84 ellipsoid in m
 WGS84_B = 6356752.314245    # semi-minor axis of the WGS84 ellipsoid in m
 WGS84_F = 1 / 298.257223563 # flatttening of the WGS84 ellipsoid
-REGEX_DIST        = re.compile(r'^\d+(\.\d+)?$')
-REGEX_AZM_DD      = re.compile(r'^360(\.[0]+)?$|^3[0-5][0-9](\.\d+)?$|^[1-2][0-9]{2}(\.\d+)?$|^[1-9][0-9](\.\d+)?$|^\d(\.\d+)?$')
-REGEX_MAGVAR_DD   = re.compile(r'^[EW]360(\.[0]+)?$|^[EW]3[0-5][0-9](\.\d+)?$|^[EW][1-2][0-9]{2}(\.\d+)?$|^[EW][1-9][0-9](\.\d+)?$|^[EW][1-9](\.\d+)?$|^[EW]0\.d+$|^0(\.0+)?$')
-REGEX_LAT_DMS_shdp = re.compile(r'''^
-                                (?P<hem>[NSns])               # Hemisphere indicator
-                                (?P<deg>[0-8]\d|90)           # Degreess
-                                (\s|-)                        # Delimiter
-                                (?P<min>[0-5]\d)              # Minutes
-                                (\s|-)                        # Delimiter
-                                (?P<sec>[0-5]\d\.\d+|[0-5]\d) # Seconds and decimal seconds
-                                $''', re.VERBOSE)
-REGEX_LON_DMS_shdp = re.compile(r'''^
-                                (?P<hem>[EeWw])               # Hemisphere indicator
-                                (?P<deg>[0-1][0-7]\d|180)     # Degreess
-                                (\s|-)                        # Delimiter
-                                (?P<min>[0-5]\d)              # Minutes
-                                (\s|-)                        # Delimiter
-                                (?P<sec>[0-5]\d\.\d+|[0-5]\d) # Seconds and decimal seconds
-                                $''', re.VERBOSE)
+
+# Special constants to use instead of False, to avoid ambigous where result of function might equal 0 and 
+# and result of fucntion will be used in if statements etc.
+VALID     = 'valid'
+NOT_VALID = 'not_valid'
+
+# Coordinate type constant
+C_LAT = 'lat'
+C_LON = 'lon'
+
+""" Distance """
+
+# Patern for distance regular expression
+REGEX_DIST = re.compile(r'^\d+(\.\d+)?$') # examples of valid: 0, 0.000, 0.32, 123.455;, examples of invalid: -1.22, s555, 234s5
+
 def validate_distance(d):
     """ Distance validation.
-    Arg:
-        d(float): distance to validate
-   
-    Returns:
-        is_valid(bool): True if distance is valid, False if distance is not valid (e.g distance is less than 0)
+    :param d: string, distance to validate
+    :return is_valid: constant VALID if distance is valid, constant NOT_VALID if distance is not valid (e.g distance is less than 0)
     """
     if REGEX_DIST.match(d):
-        is_valid = True
+        is_valid = VALID
     else:
-        is_valid = False
+        is_valid = NOT_VALID
     return is_valid
     
+""" Azimuth, bearning """
+
+REGEX_AZM_DD      = re.compile(r'^360(\.[0]+)?$|^3[0-5][0-9](\.\d+)?$|^[1-2][0-9]{2}(\.\d+)?$|^[1-9][0-9](\.\d+)?$|^\d(\.\d+)?$')
+REGEX_MAGVAR_DD   = re.compile(r'^[EW]360(\.[0]+)?$|^[EW]3[0-5][0-9](\.\d+)?$|^[EW][1-2][0-9]{2}(\.\d+)?$|^[EW][1-9][0-9](\.\d+)?$|^[EW][1-9](\.\d+)?$|^[EW]0\.d+$|^0(\.0+)?$')
+
 def validate_azm_dd(a):
     """ Azimuth in DD (decimal degrees) format validation.
-    Args:
-        a(float):   azimuth to validate
-    Return:
-        is_valid(bool): True if azimuth is valid value (e. g. 355.47), False if azimuth is invalid
+    :param a: string, azimuth to validate
+    :return is_valid: constant, VALID if a is valid azimuth, NOT_VALID if a is not valid azimuth
     """
     if REGEX_AZM_DD.match(a):
-        is_valid = True
+        is_valid = VALID
     else:
-        is_valid = False
+        is_valid = NOT_VALID
     return is_valid
-
-
-                                
+    
 def validate_magvar(mv):
     """ Magnetic variation validation.
     Format decimal degrees with E or W prefix (easter or western magnetic variation)
@@ -104,75 +106,75 @@ def validate_magvar(mv):
             else:
                 result = magvar
     else:
-        result = 'NOT_VALID'
+        result = NOT_VALID
     return result
 
-def validate_azm_dist(azm, dist):
-    is_valid = True
-    err_msg = ''
-    if not validate_azm_dd(azm):
-        is_valid = False
-        err_msg += '*Azimuth value error*'
-    if not validate_distance(dist):
-        is_valid = False
-        err_msg += '*Distance value error*'
-    return is_valid, err_msg
-    
+""" Latitude, longitude formats """
+
+# Patterns for differnet cooridnate formats
+REGEX_LAT_DMS_shdp = re.compile(r'''^
+                                (?P<hem>[NSns])               # Hemisphere indicator
+                                (?P<deg>[0-8]\d|90)           # Degreess
+                                (\s|-)                        # Delimiter
+                                (?P<min>[0-5]\d)              # Minutes
+                                (\s|-)                        # Delimiter
+                                (?P<sec>[0-5]\d\.\d+|[0-5]\d) # Seconds and decimal seconds
+                                $''', re.VERBOSE)
+REGEX_LON_DMS_shdp = re.compile(r'''^
+                                (?P<hem>[EeWw])                     # Hemisphere indicator
+                                (?P<deg>[0-1][0-7]\d|0\d\d|180)     # Degreess
+                                (\s|-)                              # Delimiter
+                                (?P<min>[0-5]\d)                    # Minutes
+                                (\s|-)                              # Delimiter
+                                (?P<sec>[0-5]\d\.\d+|[0-5]\d)       # Seconds and decimal seconds
+                                $''', re.VERBOSE)
+                                
 def lat_DMS_shdp2DD(lat):
-    """ Converts coordinate givien in DMS space or hyphen delimited format to decimal degrees.
-    If input parameter is not in DMS_shdp format, returns False
-  
-    indicator as prefix, e. g. N52 13 56.00, N52-13-56.00
-    Args:
-        lat(string): string to validation
-    Return:
-        decimal degress of the latitud or False if input parameter has wrong format
+    """ Converts coordinate givien in DMS space or hyphen delimited format, prefix with hemisphere indicator (NSWE) to decimal degrees
+    :param dms: string, coordinate in DMS format
+    :return result: float or constant NOT_VALID,  converted coordinates in decimal degrees format or NOT_VALID if format is not valid
     """
     if REGEX_LAT_DMS_shdp.match(lat):
         dms_group = REGEX_LAT_DMS_shdp.search(lat)
+        h = dms_group.group('hem')        # Hemisphere
         d = int(dms_group.group('deg'))   # Degrees
         m = int(dms_group.group('min'))   # Minutes
         s = float(dms_group.group('sec')) # Seconds
         if d == 90 and (m > 0 or s > 0):  # Check if does not exceed 90 00 00.00
-            result = False
+            result = NOT_VALID
         else:   # correct format - convert from DMS to DD
-            h = lat[0]  # get hemispehere prefix
             result = ((s / 60) + m) / 60 + d
-            if h in ['S', 's']:   # if hemisphere is south coordinate is negative 
+            if h in ['S', 's'] and result != 0:   # If hemisphere is south coordinate is negative 
                 result = -result
     else:
-        result = False
+        result = NOT_VALID
     return result
- 
+    
 def lon_DMS_shdp2DD(lon):
-    """ Validates if latitude is in DMS format, space or hyphen separated, with hemisphere 
-    indicator as prefix, e. g. N52 13 56.00, N52-13-56.00
-    Args:
-        lat(string): string to validation
-    Return:
-        is_valid(bool): True if (lon) string is valid longitude, False if (lat) string is not valid
+    """ Converts coordinate givien in DMS space or hyphen delimited format, prefix with hemisphere indicator (NSWE) to decimal degrees
+    :param dms: string, coordinate in DMS format
+    :return result: float or constant NOT_VALID, converted coordinates in decimal degrees format or NOT_VALID if longitude is inavlid
     """
     if REGEX_LON_DMS_shdp.match(lon):
         dms_group = REGEX_LON_DMS_shdp.search(lon)
+        h = dms_group.group('hem')        # Hemisphere
         d = int(dms_group.group('deg'))   # Degrees
         m = int(dms_group.group('min'))   # Minutes
         s = float(dms_group.group('sec')) # Seconds
         if d == 180 and (m > 0 or s > 0):   # Check if does not exceed 180 00 00.00
-            result = False
+            result = NOT_VALID
         else: # correct format - convert from DMS to DD
-            h = lon[0]  # get hemispehere prefix
             result = ((s / 60) + m) / 60 + d
-            if h in ['W', 'w']:   # if hemisphere is west coordinate is negative 
+            if h in ['W', 'w'] and result != 0 :   # if hemisphere is west coordinate is negative 
                 result = -result
     else:
-        result = False
+        result = NOT_VALID
     return result
-
-def dd2dms_sd_prefix(dd, c_type):
-    """ Converts coordinate in DD (decimal degrees format) to DMS format space delimited
-    Args:
-        dd(float): latitude or longitude in decimal degrees format
-        c_type(string): cooridnate type, 'LAT' for latitude, 'LON' for longitude
+    
+def dd2dms_shdp(dd, c_type):
+    """ Converts coordinate in DD (decimal degrees format) to DMS format space or hyphen delimited with hemisphere prefix
+    :param dd: float, latitude or longitude in decimal degrees format
+    :param c_type: coordinate type constant, 'LAT' for latitude, 'LON' for longitude
     Retrun:
         dms(string): latitude or longitude in DMS format
     """
@@ -185,20 +187,20 @@ def dd2dms_sd_prefix(dd, c_type):
     m = int(math.floor((float(s_dd) - d) * 60))
     s = (((float(s_dd) - d) * 60) - m) * 60
     
-    if c_type == 'LAT':
+    if c_type == C_LAT:
         if d < 10:
             d = '0' + str(d)
         if m < 10:
             m = '0' + str(m)
         if s < 10:
-            s = '0' + str(s) 
+            s = '0' + format(s, '.8f') 
  
         if dd >= 0:
             dms = 'N' + str(d) + ' ' + str(m) + ' ' + str(s)[0:5]
         else:
             dms = 'S' + str(d) + ' ' + str(m) + ' ' + str(s)[0:5]
     
-    if c_type == 'LON':
+    if c_type == C_LON:
         if d < 10:
             d = '00' + str(d)
         elif d < 100:
@@ -207,7 +209,7 @@ def dd2dms_sd_prefix(dd, c_type):
         if m < 10:
             m = '0' + str(m)
         if s < 10:
-            s = '0' + str(s)
+            s = '0' + format(s, '.8f') 
             
         if dd >= 0:
             dms = 'E' + str(d) + ' ' + str(m) + ' ' + str(s)[0:5]
@@ -215,30 +217,31 @@ def dd2dms_sd_prefix(dd, c_type):
             dms = 'W' + str(d) + ' ' + str(m) + ' ' + str(s)[0:5]
     return dms
     
+""" Latitude, longitude computation on ellipsoid """
+
 def vincenty_direct_solution(begin_lat, begin_lon, begin_azimuth, distance, a, b, f): 
     """ Computes the latitude and longitude of the second point based on latitude, longitude,
     of the first point and distance and azimuth from first point to second point.
     Uses the algorithm by Thaddeus Vincenty for direct geodetic problem.
     For more information refer to: http://www.ngs.noaa.gov/PUBS_LIB/inverse.pdf
     
-    Args:
-        begin_lat (float)   : latitude of the first point; decimal degrees
-        begin_lon (float)   : longitude of the first point; decimal degrees
-        begin_azimuth(float): azimuth from first point to second point; decimal degrees
-        distance(float)     :  distance from first point to second point; meters
-        a (float) : semi-major axis of ellispoid; meters
-        b (float) : semi-minor axis of ellipsoid; meters
-        f (float) : flatttening of ellipsoid
-    
-    Returns:
-        lat2_dd (float): latitude of the second point; decimal degrees
-        lon2_dd (float): longitude of the second point; decimal degrees
+    :param begin_lat: float, latitude of the first point; decimal degrees
+    :param begin_lon: float, longitude of the first point; decimal degrees
+    :param begin_azimuth: float, azimuth from first point to second point; decimal degrees
+    :param distance: float, distance from first point to second point; meters
+    :param a: float, semi-major axis of ellispoid; meters
+    :param b: float, semi-minor axis of ellipsoid; meters
+    :param f: float, flatttening of ellipsoid
+    :return lat2_dd, lon2_dd: float, float latitude and longitude of the secon point, decimal degrees
     """
     # Convert latitude, longitude, azimuth of the begining point to radians
     lat1 = math.radians(begin_lat)
     lon1 = math.radians(begin_lon)
     alfa1 = math.radians(begin_azimuth)
 
+    sinAlfa1 = math.sin(alfa1)
+    cosAlfa1 = math.cos(alfa1)
+    
     # U1 - reduced latitude
     tanU1 = (1 - f) * math.tan(lat1)
     cosU1 = 1 / math.sqrt(1 + tanU1 * tanU1)
@@ -248,103 +251,52 @@ def vincenty_direct_solution(begin_lat, begin_lon, begin_azimuth, distance, a, b
     sigma1 = math.atan2(tanU1, math.cos(alfa1))
     
     # sinAlfa - azimuth of the geodesic at the equator
-    sinAlfa = cosU1 * math.sin(alfa1)
+    sinAlfa = cosU1 * sinAlfa1
     cosSqAlfa = 1 - sinAlfa * sinAlfa
     uSq = cosSqAlfa * (a * a - b * b) / (b * b)
-    
-    A = 1 + (uSq * (4096 + uSq * (-768 + uSq * (320 - 175 * uSq)))) / 16384
-    B = (uSq * (256 + uSq * (-128 + uSq * (74 - 47 * uSq)))) / 1024
+    A = 1 + uSq/16384 * (4096 + uSq * (-768 + uSq * (320 - 175 * uSq)))
+    B = uSq/1024 * (256 + uSq * (-128 + uSq * (74 - 47 * uSq)))
     
     sigma = distance / (b * A)
     sigmap = 1
     
-    while (math.fabs(sigma - sigmap) > 1e-13):
+    while (math.fabs(sigma - sigmap) > 1e-12):
         cos2sigmaM = math.cos(2 * sigma1 + sigma)
-        dsigma = B * math.sin(sigma)*(cos2sigmaM + B*(cos2sigmaM*(-1 + 2 * cos2sigmaM * cos2sigmaM)-B*(cos2sigmaM*(-3 + 4 * math.sin(sigma) * math.sin(sigma))*(-3 + 4 *cos2sigmaM*cos2sigmaM))/6)/4)
+        sinSigma = math.sin(sigma)
+        cosSigma = math.cos(sigma)
+        dSigma = B*sinSigma*(cos2sigmaM+B/4*(cosSigma*(-1+2*cos2sigmaM*cos2sigmaM)-B/6*cos2sigmaM*(-3+4*sinSigma*sinSigma)*(-3+4*cos2sigmaM*cos2sigmaM)))        
         sigmap = sigma
-        sigma = distance / (b * A) + dsigma
+        sigma = distance / (b * A) + dSigma
     
-    var_aux = (sinU1 * math.sin(sigma) - cosU1 * math.cos(sigma) * math.cos(alfa1)) * (sinU1 * math.sin(sigma) - cosU1 * math.cos(sigma) * math.cos(alfa1))
+    var_aux = sinU1 * sinSigma - cosU1 * cosSigma * cosAlfa1
     
     # Latitude of the end point in radians
-    lat2 = math.atan2(sinU1 * math.cos(sigma) + cosU1 * math.sin(sigma)*math.cos(alfa1), (1 - f)*math.sqrt(sinAlfa * sinAlfa + var_aux))
+    lat2 = math.atan2(sinU1 * cosSigma + cosU1 * sinSigma*cosAlfa1, (1 - f)*math.sqrt(sinAlfa * sinAlfa + var_aux*var_aux))
     
-    lamb = math.atan2 (math.sin(sigma) * math.sin(alfa1), cosU1 * math.cos(sigma) - sinU1 * math.sin(sigma) * math.cos(alfa1))
-    C = f / (16 * cosSqAlfa * (4 + f * (4 - 3 * cosSqAlfa)))
-    L = lamb - (1 - C) * f * sinAlfa *(sigma + C *math.sin(sigma) * (cos2sigmaM + C * math.cos(sigma) * (-1 + 2 * cos2sigmaM * cos2sigmaM)))
+    lamb = math.atan2 (sinSigma * sinAlfa1, cosU1 * cosSigma - sinU1 * sinSigma * cosAlfa1)
+    C = f / 16 * cosSqAlfa * (4 + f * (4 - 3 * cosSqAlfa))
+    L = lamb - (1 - C) * f * sinAlfa *(sigma + C * sinSigma * (cos2sigmaM + C * cosSigma * (-1 + 2 * cos2sigmaM * cos2sigmaM)))
     # Longitude of the second point in radians
-    lon2 = lon1 + L
+    lon2 = (lon1 + L +3*math.pi)%(2*math.pi) - math.pi
     
     # Convert to decimal degrees
     lat2_dd = math.degrees(lat2)  
     lon2_dd = math.degrees(lon2)
     
-    return lat2_dd, lon2_dd  
-def vincenty_direct_solution(begin_lat, begin_lon, begin_azimuth, distance, a, b, f): 
-    """ Computes the latitude and longitude of the second point based on latitude, longitude,
-    of the first point and distance and azimuth from first point to second point.
-    Uses the algorithm by Thaddeus Vincenty for direct geodetic problem.
-    For more information refer to: http://www.ngs.noaa.gov/PUBS_LIB/inverse.pdf
+    return lat2_dd, lon2_dd 
     
-    Args:
-        begin_lat (float)   : latitude of the first point; decimal degrees
-        begin_lon (float)   : longitude of the first point; decimal degrees
-        begin_azimuth(float): azimuth from first point to second point; decimal degrees
-        distance(float)     :  distance from first point to second point; meters
-        a (float) : semi-major axis of ellispoid; meters
-        b (float) : semi-minor axis of ellipsoid; meters
-        f (float) : flatttening of ellipsoid
-    
-    Returns:
-        lat2_dd (float): latitude of the second point; decimal degrees
-        lon2_dd (float): longitude of the second point; decimal degrees
-    """
-    # Convert latitude, longitude, azimuth of the begining point to radians
-    lat1 = math.radians(begin_lat)
-    lon1 = math.radians(begin_lon)
-    alfa1 = math.radians(begin_azimuth)
+""" Validate azimuth or bearning and distacne """
 
-    # U1 - reduced latitude
-    tanU1 = (1 - f) * math.tan(lat1)
-    cosU1 = 1 / math.sqrt(1 + tanU1 * tanU1)
-    sinU1 = tanU1 * cosU1
-    
-    # sigma1 - angular distance on the sphere from the equator to begining point
-    sigma1 = math.atan2(tanU1, math.cos(alfa1))
-    
-    # sinAlfa - azimuth of the geodesic at the equator
-    sinAlfa = cosU1 * math.sin(alfa1)
-    cosSqAlfa = 1 - sinAlfa * sinAlfa
-    uSq = cosSqAlfa * (a * a - b * b) / (b * b)
-    
-    A = 1 + (uSq * (4096 + uSq * (-768 + uSq * (320 - 175 * uSq)))) / 16384
-    B = (uSq * (256 + uSq * (-128 + uSq * (74 - 47 * uSq)))) / 1024
-    
-    sigma = distance / (b * A)
-    sigmap = 1
-    
-    while (math.fabs(sigma - sigmap) > 1e-13):
-        cos2sigmaM = math.cos(2 * sigma1 + sigma)
-        dsigma = B * math.sin(sigma)*(cos2sigmaM + B*(cos2sigmaM*(-1 + 2 * cos2sigmaM * cos2sigmaM)-B*(cos2sigmaM*(-3 + 4 * math.sin(sigma) * math.sin(sigma))*(-3 + 4 *cos2sigmaM*cos2sigmaM))/6)/4)
-        sigmap = sigma
-        sigma = distance / (b * A) + dsigma
-    
-    var_aux = (sinU1 * math.sin(sigma) - cosU1 * math.cos(sigma) * math.cos(alfa1)) * (sinU1 * math.sin(sigma) - cosU1 * math.cos(sigma) * math.cos(alfa1))
-    
-    # Latitude of the end point in radians
-    lat2 = math.atan2(sinU1 * math.cos(sigma) + cosU1 * math.sin(sigma)*math.cos(alfa1), (1 - f)*math.sqrt(sinAlfa * sinAlfa + var_aux))
-    
-    lamb = math.atan2 (math.sin(sigma) * math.sin(alfa1), cosU1 * math.cos(sigma) - sinU1 * math.sin(sigma) * math.cos(alfa1))
-    C = f / (16 * cosSqAlfa * (4 + f * (4 - 3 * cosSqAlfa)))
-    L = lamb - (1 - C) * f * sinAlfa *(sigma + C *math.sin(sigma) * (cos2sigmaM + C * math.cos(sigma) * (-1 + 2 * cos2sigmaM * cos2sigmaM)))
-    # Longitude of the second point in radians
-    lon2 = lon1 + L
-    
-    # Convert to decimal degrees
-    lat2_dd = math.degrees(lat2)  
-    lon2_dd = math.degrees(lon2)
-    
-    return lat2_dd, lon2_dd    
+def validate_azm_dist(azm, dist):
+    is_valid = True
+    err_msg = ''
+    if validate_azm_dd(azm) == NOT_VALID:
+        is_valid = False
+        err_msg += '*Azimuth value error*'
+    if validate_distance(dist) == NOT_VALID:
+        is_valid = False
+        err_msg += '*Distance value error*'
+    return is_valid, err_msg
     
 def tmp_layer_name():
     """ Creates temprary layer name, from current datie
@@ -373,7 +325,7 @@ class InputDataSet:
         self.f_out = f_out
 
 # Initialize InputDataSet variables
-in_data = InputDataSet()
+input_data = InputDataSet()
      
 w = QWidget()
 
@@ -555,32 +507,32 @@ class qgsCsvAzmDist2LatLon:
         r_lat = lat_DMS_shdp2DD(rp_lat_dms)
         r_lon = lon_DMS_shdp2DD(rp_lon_dms)
         
-        if not r_lat:  
-            err_msg = err_msg + 'Enter latitude of reference point in correct format\n'
+        if r_lat == NOT_VALID:  
+            err_msg += 'Enter latitude of reference point in correct format\n'
             val_result = False
  
-        if not r_lon:
-            err_msg = err_msg + 'Enter longitude of reference point in correct format\n'
+        if r_lon == NOT_VALID:
+            err_msg += 'Enter longitude of reference point in correct format\n'
             val_result = False
             
         if rp_mv == '': # Magnetic Variation not enetered - assume magnetic variation as 0.0, 
             r_mag = 0.0
         else:
-            if validate_magvar(rp_mv) == 'NOT_VALID':
-                err_msg = err_msg + 'Enter magntic variation at the reference point in correct format, or leave blank if it is 0\n'
+            if validate_magvar(rp_mv) == NOT_VALID:
+                err_msg += 'Enter magntic variation at the reference point in correct format, or leave blank if it is 0\n'
                 val_result = False
             else: 
                 r_mag = validate_magvar(rp_mv)
                 
         if in_csv == '':
-            err_msg = err_msg + 'Choose input file\n'
+            err_msg += 'Choose input file\n'
             val_result = False
         if out_csv == '':
-            err_msg = err_msg + 'Choose output file\n'
+            err_msg += 'Choose output file\n'
             val_result = False
             
         if val_result == True:
-            in_data.assign_values(r_lat, r_lon, r_mag, in_csv, out_csv)
+            input_data.assign_values(r_lat, r_lon, r_mag, in_csv, out_csv)
         else:
             QMessageBox.critical(w, "Message", err_msg)   
          
@@ -603,7 +555,7 @@ class qgsCsvAzmDist2LatLon:
         QgsMapLayerRegistry.instance().addMapLayers([output_lyr])
     def csv_azmdist2latlon(self):
         """ Reads input file, calcutes, saves to output file"""
-        global in_data
+        global input_data
         err_msg = ''
         # Create temporary vector layer to store oytput points
         v_lyr_name = tmp_layer_name()       # Get layer name
@@ -617,24 +569,24 @@ class qgsCsvAzmDist2LatLon:
         feat = QgsFeature()
         
         out_csv_field_names = ['P_NAME', 'AZM_BRNG', 'DIST', 'LAT_DMS', 'LON_DMS', 'NOTES']
-        with open(in_data.f_in, 'r') as in_csv:
-            with open(in_data.f_out, 'w') as out_csv:
+        with open(input_data.f_in, 'r') as in_csv:
+            with open(input_data.f_out, 'w') as out_csv:
                 reader = csv.DictReader(in_csv, delimiter = ';')
                 writer = csv.DictWriter(out_csv, fieldnames = out_csv_field_names, delimiter = ';')
                 for row in reader:
                     azm_dist_valid, err_msg = validate_azm_dist(row['AZM_BRNG'], row['DIST'])
                     if azm_dist_valid: # azimuth or brng and distance are valid
-                        # Correct azmiuth by magnetic variation
-                        azm = float(row['AZM_BRNG']) + in_data.r_mag
+                        # Correct azimuth by magnetic variation
+                        azm = float(row['AZM_BRNG']) + input_data.r_mag
                         if azm < 0:
                             azm += 360
                         elif azm > 360:
                             azm -= 360
                         # Calculate second point latitude and longitude in decimal degress 
-                        ep_lat_dd, ep_lon_dd = vincenty_direct_solution(in_data.r_lat, in_data.r_lon, azm, float(row['DIST']), WGS84_A, WGS84_B, WGS84_F)
+                        ep_lat_dd, ep_lon_dd = vincenty_direct_solution(input_data.r_lat, input_data.r_lon, azm, float(row['DIST']), WGS84_A, WGS84_B, WGS84_F)
                         # Convert to DMS format with hemisphere indicator as prefix
-                        ep_lat_dms = dd2dms_sd_prefix(ep_lat_dd, 'LAT')
-                        ep_lon_dms = dd2dms_sd_prefix(ep_lon_dd, 'LON')
+                        ep_lat_dms = dd2dms_shdp(ep_lat_dd, C_LAT)
+                        ep_lon_dms = dd2dms_shdp(ep_lon_dd, C_LON)
                         # Write result to output file
                         writer.writerow({'P_NAME': row['P_NAME'],
                                     'AZM_BRNG': row['AZM_BRNG'],
