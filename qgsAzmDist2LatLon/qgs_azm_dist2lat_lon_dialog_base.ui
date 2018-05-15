@@ -159,7 +159,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Distance [m]</string>
+     <string>Distance</string>
     </property>
    </widget>
    <widget class="QLineEdit" name="leEndPointName">
@@ -191,6 +191,41 @@
       <height>27</height>
      </rect>
     </property>
+   </widget>
+   <widget class="QComboBox" name="cbDistUnit">
+    <property name="geometry">
+     <rect>
+      <x>290</x>
+      <y>100</y>
+      <width>92</width>
+      <height>27</height>
+     </rect>
+    </property>
+    <item>
+     <property name="text">
+      <string>m</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>km</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>NM</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>feet</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>SM</string>
+     </property>
+    </item>
    </widget>
   </widget>
   <widget class="QLineEdit" name="leLyrOut">

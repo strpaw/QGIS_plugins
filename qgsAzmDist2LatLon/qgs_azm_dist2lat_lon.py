@@ -51,6 +51,19 @@ C_LON = 'lon'
 
 """ Distance """
 
+# Units of measure
+UOM_M  = 'M'
+UOM_KM = 'KM'
+UOM_F  = 'FEET'
+UOM_SM = 'SM'
+UOM_NM = 'NM'
+
+# Conversion factors
+F_FEET2M = 0.3048   # Feet to meteres
+F_NM2M   = 1852     # Nautical miles to meters
+F_SM2M   = 1609.344 # Statue milse to meters
+
+
 # Patern for distance regular expression
 REGEX_DIST = re.compile(r'^\d+(\.\d+)?$') # examples of valid: 0, 0.000, 0.32, 123.455;, examples of invalid: -1.22, s555, 234s5
 
@@ -64,6 +77,26 @@ def validate_distance(d):
     else:
         is_valid = NOT_VALID
     return is_valid
+
+def distance2m(d, unit):
+    """ Converts distance given in feet, nautical miles, statue miles etc. to distance in meters
+    :param d: float, diatance
+    :param unit: constant unit of measure, unit of measure
+    :return d_m: float, distance in meters
+    """
+    if unit == UOM_M:
+        d_m = d
+    elif unit == UOM_KM:
+        d_m = d * 1000
+    elif unit == UOM_F:
+        d_m = d * F_FEET2M
+    elif unit == UOM_SM:
+        d_m = d * F_SM2M
+    elif unit == UOM_NM:
+        d_m = d * F_NM2M
+    
+    return d_m
+    
     
 """ Azimuth, bearning """
 
@@ -458,6 +491,19 @@ class qgsAzmDist2LatLon:
     def select_input_file(self):
         input_file = QFileDialog.getOpenFileName(self.dlg, "Select input file ", "", '*.csv')
         self.dlg.leInputFile.setText(input_file)
+    
+    def get_dist_unit(self):
+        if self.dlg.cbDistUnit.currentText() == 'm':
+            dist_unit = UOM_M
+        elif self.dlg.cbDistUnit.currentText() == 'km':
+            dist_unit = UOM_KM
+        elif self.dlg.cbDistUnit.currentText() == 'NM':
+            dist_unit = UOM_NM
+        elif self.dlg.cbDistUnit.currentText() == 'feet':
+            dist_unit = UOM_F
+        elif self.dlg.cbDistUnit.currentText() == 'SM':
+            dist_unit = UOM_SM
+        return dist_unit
         
     def val_input(self):
         """ Gets and validates if input data is correct"""
@@ -514,7 +560,9 @@ class qgsAzmDist2LatLon:
             ep_azm = float(ep_azm) + r_mag # Correct by magnetic variation
             if ep_azm < 0:
                 ep_azm += 360
-            input_data.assign_values(r_lat, r_lon, r_mag, lyr_out, ep_name, ep_azm, float(ep_dist))
+            dist_unit = self.get_dist_unit()
+            ep_dist_m = distance2m(float(ep_dist), dist_unit)
+            input_data.assign_values(r_lat, r_lon, r_mag, lyr_out, ep_name, ep_azm, ep_dist_m)
         else:
             QMessageBox.critical(w, "Message", err_msg)
             
