@@ -36,12 +36,6 @@ import math
 import csv
 import datetime
 
-
-
-import re
-import math
-import csv
-
 """ This section contains general constants, function to perform validation of input data and calculations """
 
 # Parameters of WGS84 ellipsoid
@@ -60,6 +54,19 @@ C_LON = 'lon'
 
 """ Distance """
 
+# Units of measure
+UOM_M  = 'M'
+UOM_KM = 'KM'
+UOM_F  = 'FEET'
+UOM_SM = 'SM'
+UOM_NM = 'NM'
+
+# Conversion factors
+F_FEET2M = 0.3048   # Feet to meteres
+F_NM2M   = 1852     # Nautical miles to meters
+F_SM2M   = 1609.344 # Statue milse to meters
+
+
 # Patern for distance regular expression
 REGEX_DIST = re.compile(r'^\d+(\.\d+)?$') # examples of valid: 0, 0.000, 0.32, 123.455;, examples of invalid: -1.22, s555, 234s5
 
@@ -73,6 +80,26 @@ def validate_distance(d):
     else:
         is_valid = NOT_VALID
     return is_valid
+
+def distance2m(d, unit):
+    """ Converts distance given in feet, nautical miles, statue miles etc. to distance in meters
+    :param d: float, diatance
+    :param unit: constant unit of measure, unit of measure
+    :return d_m: float, distance in meters
+    """
+    if unit == UOM_M:
+        d_m = d
+    elif unit == UOM_KM:
+        d_m = d * 1000
+    elif unit == UOM_F:
+        d_m = d * F_FEET2M
+    elif unit == UOM_SM:
+        d_m = d * F_SM2M
+    elif unit == UOM_NM:
+        d_m = d * F_NM2M
+    
+    return d_m
+    
     
 """ Azimuth, bearning """
 
@@ -284,7 +311,7 @@ def vincenty_direct_solution(begin_lat, begin_lon, begin_azimuth, distance, a, b
     lon2_dd = math.degrees(lon2)
     
     return lat2_dd, lon2_dd 
-    
+
 """ Validate azimuth or bearning and distacne """
 
 def validate_azm_dist(azm, dist):
@@ -297,6 +324,22 @@ def validate_azm_dist(azm, dist):
         is_valid = False
         err_msg += '*Distance value error*'
     return is_valid, err_msg
+
+def check_csv_header(csv_f, header_to_check):
+    """
+    :param csv_f: csv file to check
+    :param header_to_check: string, header to check
+    :retun result: validation status, VALID if header_to_check parameter match to header in csv file, NOT_VALID otherwise
+    """
+    with open(csv_f, 'r') as csv_file:
+        header_line = csv_file.readline()
+        header_line = header_line.rstrip('\n')
+        
+    if header_line == header_to_check:
+        result = VALID
+    else:
+        result = NOT_VALID
+    return result
     
 def tmp_layer_name():
     """ Creates temprary layer name, from current datie
@@ -497,6 +540,7 @@ class qgsCsvAzmDist2LatLon:
         global in_data
         val_result = True
         err_msg = ''
+        h_to_check = 'P_NAME;AZM_BRNG;DIST'
         # Assign input to variables
         rp_lat_dms = self.dlg.leRefLat.text()        # Latitude of the reference point
         rp_lon_dms = self.dlg.leRefLon.text()        # Longitude of the reference point
@@ -527,9 +571,15 @@ class qgsCsvAzmDist2LatLon:
         if in_csv == '':
             err_msg += 'Choose input file\n'
             val_result = False
+        else:
+            if check_csv_header(in_csv, h_to_check) == NOT_VALID:
+                err_msg += 'Inpute csv file header is not P_NAME;AZM_BRNG;DIST\n'
+                val_result = False
+                
         if out_csv == '':
             err_msg += 'Choose output file\n'
             val_result = False
+        
             
         if val_result == True:
             input_data.assign_values(r_lat, r_lon, r_mag, in_csv, out_csv)
@@ -574,39 +624,47 @@ class qgsCsvAzmDist2LatLon:
                 reader = csv.DictReader(in_csv, delimiter = ';')
                 writer = csv.DictWriter(out_csv, fieldnames = out_csv_field_names, delimiter = ';')
                 for row in reader:
-                    azm_dist_valid, err_msg = validate_azm_dist(row['AZM_BRNG'], row['DIST'])
-                    if azm_dist_valid: # azimuth or brng and distance are valid
-                        # Correct azimuth by magnetic variation
-                        azm = float(row['AZM_BRNG']) + input_data.r_mag
-                        if azm < 0:
-                            azm += 360
-                        elif azm > 360:
-                            azm -= 360
-                        # Calculate second point latitude and longitude in decimal degress 
-                        ep_lat_dd, ep_lon_dd = vincenty_direct_solution(input_data.r_lat, input_data.r_lon, azm, float(row['DIST']), WGS84_A, WGS84_B, WGS84_F)
-                        # Convert to DMS format with hemisphere indicator as prefix
-                        ep_lat_dms = dd2dms_shdp(ep_lat_dd, C_LAT)
-                        ep_lon_dms = dd2dms_shdp(ep_lon_dd, C_LON)
-                        # Write result to output file
+                    try: # Try to read line according to field names
+                        azm_dist_valid, err_msg = validate_azm_dist(row['AZM_BRNG'], row['DIST'])
+                        if azm_dist_valid: # azimuth or brng and distance are valid
+                            # Correct azimuth by magnetic variation
+                            azm = float(row['AZM_BRNG']) + input_data.r_mag
+                            if azm < 0:
+                                azm += 360
+                            elif azm > 360:
+                                azm -= 360
+                            # Calculate second point latitude and longitude in decimal degress 
+                            ep_lat_dd, ep_lon_dd = vincenty_direct_solution(input_data.r_lat, input_data.r_lon, azm, float(row['DIST']), WGS84_A, WGS84_B, WGS84_F)
+                            # Convert to DMS format with hemisphere indicator as prefix
+                            ep_lat_dms = dd2dms_shdp(ep_lat_dd, C_LAT)
+                            ep_lon_dms = dd2dms_shdp(ep_lon_dd, C_LON)
+                            # Write result to output file
+                            writer.writerow({'P_NAME': row['P_NAME'],
+                                        'AZM_BRNG': row['AZM_BRNG'],
+                                        'DIST': row['DIST'],
+                                        'LAT_DMS' : ep_lat_dms,
+                                        'LON_DMS' : ep_lon_dms,
+                                        'NOTES' : ''})
+                            # Write result to temporary layer
+                            end_point = QgsPoint(ep_lon_dd, ep_lat_dd)
+                            feat.setGeometry(QgsGeometry.fromPoint(end_point))
+                            feat.setAttributes([0, row['P_NAME'], ep_lat_dms, ep_lon_dms])
+                            v_prov.addFeatures([feat])
+                            v_lyr.commitChanges()
+                        else: # azimuth or brng or distance is not valid write err_msg to NOTES
+                            writer.writerow({'P_NAME': row['P_NAME'],
+                                        'AZM_BRNG': row['AZM_BRNG'],
+                                        'DIST': row['DIST'],
+                                        'LAT_DMS' : '',
+                                        'LON_DMS' : '',
+                                        'NOTES' : err_msg})
+                    except: # Row of csv does not match to field names in header
                         writer.writerow({'P_NAME': row['P_NAME'],
-                                    'AZM_BRNG': row['AZM_BRNG'],
-                                    'DIST': row['DIST'],
-                                    'LAT_DMS' : ep_lat_dms,
-                                    'LON_DMS' : ep_lon_dms,
-                                    'NOTES' : ''})
-                        # Write result to temporary layer
-                        end_point = QgsPoint(ep_lon_dd, ep_lat_dd)
-                        feat.setGeometry(QgsGeometry.fromPoint(end_point))
-                        feat.setAttributes([0, row['P_NAME'], ep_lat_dms, ep_lon_dms])
-                        v_prov.addFeatures([feat])
-                        v_lyr.commitChanges()
-                    else: # azimuth or brng or distance is not valid write err_msg to NOTES
-                        writer.writerow({'P_NAME': row['P_NAME'],
-                                    'AZM_BRNG': row['AZM_BRNG'],
-                                    'DIST': row['DIST'],
-                                    'LAT_DMS' : '',
-                                    'LON_DMS' : '',
-                                    'NOTES' : err_msg})
+                                        'AZM_BRNG': row['AZM_BRNG'],
+                                        'DIST': row['DIST'],
+                                        'LAT_DMS' : '',
+                                        'LON_DMS' : '',
+                                        'NOTES' : 'Wrong CSV line'})
                         
         v_lyr.updateExtents()              
         return
