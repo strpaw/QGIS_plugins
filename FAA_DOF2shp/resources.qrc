@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/plugins/FAA_DOF2shp" >
+        <file>icon.png</file>
+    </qresource>
+</RCC>
