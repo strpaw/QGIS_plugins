@@ -101,8 +101,7 @@ def distance2m(d, unit):
 """ Azimuth, bearning """
 
 REGEX_AZM_DD      = re.compile(r'^360(\.[0]+)?$|^3[0-5][0-9](\.\d+)?$|^[1-2][0-9]{2}(\.\d+)?$|^[1-9][0-9](\.\d+)?$|^\d(\.\d+)?$')
-REGEX_MAGVAR_DD   = re.compile(r'^[EW]360(\.[0]+)?$|^[EW]3[0-5][0-9](\.\d+)?$|^[EW][1-2][0-9]{2}(\.\d+)?$|^[EW][1-9][0-9](\.\d+)?$|^[EW][1-9](\.\d+)?$|^[EW]0\.d+$|^0(\.0+)?$')
-
+REGEX_MAGVAR_DD      = re.compile(r'^\d+(\.d+)?$')
 def validate_azm_dd(a):
     """ Azimuth in DD (decimal degrees) format validation.
     :param a: string, azimuth to validate
@@ -118,20 +117,34 @@ def validate_magvar(mv):
     """ Magnetic variation validation.
     Format decimal degrees with E or W prefix (easter or western magnetic variation)
     """
-    if REGEX_MAGVAR_DD.match(mv):
+    result = VALID
+    mag_var = None
+    try:
+        mag_var = float(mv)
+        if (mag_var > 360) or (mag_var < -360):
+            result = NOT_VALID
+    except ValueError:
         try:
-            magvar = float(mv)
-            result = magvar  # Note: result is True, if result = float(mv) in this case = 0 which equal False!
-        except ValueError:
-            magvar = float(mv[1:])
             prefix = mv[0]
-            if prefix == 'W':
-                result = -magvar
+            if REGEX_MAGVAR_DD.match(mv[1:]): # Check if there are only numbers > 0, eg. 1.5, not -1.5
+                mag_var = float(mv[1:])
+                if prefix == 'W':
+                    result = -mag_var
+                elif prefix == 'E':
+                    result = mag_var
+                else:
+                    result = NOT_VALID
             else:
-                result = magvar
-    else:
-        result = NOT_VALID
-    return result
+                result = NOT_VALID
+
+            if (mag_var != None) and ((mag_var > 360) or (mag_var < -360)):
+                result = NOT_VALID    
+            
+        except ValueError:
+            result = NOT_VALID
+            mag_var = None
+
+    return result, mag_var
 
 """ Latitude, longitude formats """
 
@@ -542,11 +555,11 @@ class qgsAzmDist2LatLon:
             r_mag = 0.0
             #val_result = True
         else:
-            if validate_magvar(rp_mv) == 'NOT_VALID':
+            if validate_magvar(rp_mv)[0] == NOT_VALID:
                 err_msg = err_msg + 'Enter magntic variation at the reference point in correct format, or leave blank if it is 0\n'
                 val_result = False
             else: 
-                r_mag = validate_magvar(rp_mv)
+                r_mag = float(validate_magvar(rp_mv)[1])
 
         if validate_azm_dd(ep_azm) == NOT_VALID:
             err_msg += 'Enter azimuth from reference point to end point in correct format\n'
@@ -560,6 +573,8 @@ class qgsAzmDist2LatLon:
             ep_azm = float(ep_azm) + r_mag # Correct by magnetic variation
             if ep_azm < 0:
                 ep_azm += 360
+            elif ep_azm > 360:
+                ep_azm -= 360
             dist_unit = self.get_dist_unit()
             ep_dist_m = distance2m(float(ep_dist), dist_unit)
             input_data.assign_values(r_lat, r_lon, r_mag, lyr_out, ep_name, ep_azm, ep_dist_m)
@@ -590,6 +605,7 @@ class qgsAzmDist2LatLon:
             #Check if output_layer is on the layer list, if not - create layer and add rrefernce point and calculated point
             
             ep_lat_dd, ep_lon_dd = vincenty_direct_solution(input_data.r_lat, input_data.r_lon, input_data.ep_azm, input_data.ep_dist, WGS84_A, WGS84_B, WGS84_F)
+            
             ep_lat_dms = dd2dms_shdp(ep_lat_dd, C_LAT)
             ep_lon_dms = dd2dms_shdp(ep_lon_dd, C_LON)
 

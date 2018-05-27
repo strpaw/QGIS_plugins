@@ -104,7 +104,7 @@ def distance2m(d, unit):
 """ Azimuth, bearning """
 
 REGEX_AZM_DD      = re.compile(r'^360(\.[0]+)?$|^3[0-5][0-9](\.\d+)?$|^[1-2][0-9]{2}(\.\d+)?$|^[1-9][0-9](\.\d+)?$|^\d(\.\d+)?$')
-REGEX_MAGVAR_DD   = re.compile(r'^[EW]360(\.[0]+)?$|^[EW]3[0-5][0-9](\.\d+)?$|^[EW][1-2][0-9]{2}(\.\d+)?$|^[EW][1-9][0-9](\.\d+)?$|^[EW][1-9](\.\d+)?$|^[EW]0\.d+$|^0(\.0+)?$')
+REGEX_MAGVAR_DD      = re.compile(r'^\d+(\.d+)?$')
 
 def validate_azm_dd(a):
     """ Azimuth in DD (decimal degrees) format validation.
@@ -121,20 +121,34 @@ def validate_magvar(mv):
     """ Magnetic variation validation.
     Format decimal degrees with E or W prefix (easter or western magnetic variation)
     """
-    if REGEX_MAGVAR_DD.match(mv):
+    result = VALID
+    mag_var = None
+    try:
+        mag_var = float(mv)
+        if (mag_var > 360) or (mag_var < -360):
+            result = NOT_VALID
+    except ValueError:
         try:
-            magvar = float(mv)
-            result = magvar  # Note: result is True, if result = float(mv) in this case = 0 which equal False!
-        except ValueError:
-            magvar = float(mv[1:])
             prefix = mv[0]
-            if prefix == 'W':
-                result = -magvar
+            if REGEX_MAGVAR_DD.match(mv[1:]): # Check if there are only numbers > 0, eg. 1.5, not -1.5
+                mag_var = float(mv[1:])
+                if prefix == 'W':
+                    result = -mag_var
+                elif prefix == 'E':
+                    result = mag_var
+                else:
+                    result = NOT_VALID
             else:
-                result = magvar
-    else:
-        result = NOT_VALID
-    return result
+                result = NOT_VALID
+
+            if (mag_var != None) and ((mag_var > 360) or (mag_var < -360)):
+                result = NOT_VALID    
+            
+        except ValueError:
+            result = NOT_VALID
+            mag_var = None
+
+    return result, mag_var
 
 """ Latitude, longitude formats """
 
@@ -562,11 +576,11 @@ class qgsCsvAzmDist2LatLon:
         if rp_mv == '': # Magnetic Variation not enetered - assume magnetic variation as 0.0, 
             r_mag = 0.0
         else:
-            if validate_magvar(rp_mv) == NOT_VALID:
-                err_msg += 'Enter magntic variation at the reference point in correct format, or leave blank if it is 0\n'
+            if validate_magvar(rp_mv)[0] == NOT_VALID:
+                err_msg = err_msg + 'Enter magntic variation at the reference point in correct format, or leave blank if it is 0\n'
                 val_result = False
             else: 
-                r_mag = validate_magvar(rp_mv)
+                r_mag = float(validate_magvar(rp_mv)[1])
                 
         if in_csv == '':
             err_msg += 'Choose input file\n'
