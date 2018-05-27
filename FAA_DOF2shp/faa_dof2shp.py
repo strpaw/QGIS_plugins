@@ -8,7 +8,7 @@
         begin                : 2018-05-22
         git sha              : $Format:%H$
         copyright            : (C) 2018 by Pawel Strzelewicz
-        email                : pawel.strzelewicz@wp.pl
+        email                : @
  ***************************************************************************/
 
 /***************************************************************************
@@ -306,7 +306,7 @@ class FAA_DOF2shp:
         return
         
     def convert_FAA_DOF2shp(self):
-        # Set referefnce system
+        # Set reference system
         crs = QgsCoordinateReferenceSystem()
         crs.createFromId(4326)
         # Defining fileds for feature attributes
