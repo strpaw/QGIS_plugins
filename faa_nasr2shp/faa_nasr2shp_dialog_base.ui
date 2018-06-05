@@ -86,7 +86,17 @@
    </property>
    <item>
     <property name="text">
-     <string>NATFIX file</string>
+     <string>Enroute National Fix Program Significant Points (NATFIX file)</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Regulatory AWY (AWY file) - awys</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Regulatory AWY (AWY file) - awys segments</string>
     </property>
    </item>
   </widget>
