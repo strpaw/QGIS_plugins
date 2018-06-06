@@ -112,7 +112,7 @@ def if_hletter_DD(dms, c_type):
     h = dms_n[len(dms_n) - 1]
     # Check if it is not a compacted dms
     dms_l = dms_n.split('.')
-    if len(dms_l[0]) > 3:
+    if len(dms_l[0]) > 3: # Correct, error when [EW] >= 100 degrees, len > 3
         dd = NOT_VALID
     else:
         dms_n = dms_n[0:len(dms_n) - 1] # Trim hemisphere letter
@@ -472,11 +472,14 @@ class PointByLatLon:
         return result
     def add_point(self):
         if self.get_latlon() == True:
-            layer = self.iface.activeLayer()
-            feat = QgsFeature()
-            point = QgsPoint(self.lon_dd, self.lat_dd)
-            feat.setGeometry(QgsGeometry.fromPoint(point))
-            layer.dataProvider().addFeatures([feat])
+            try:
+                layer = self.iface.activeLayer()
+                feat = QgsFeature()
+                point = QgsPoint(self.lon_dd, self.lat_dd)
+                feat.setGeometry(QgsGeometry.fromPoint(point))
+                layer.dataProvider().addFeatures([feat])
+            except:
+                QMessageBox.critical(w, "Message", 'Error,failure. Contact  with your supervisor')
         return
     def run(self):
         """Run method that performs all the real work"""
