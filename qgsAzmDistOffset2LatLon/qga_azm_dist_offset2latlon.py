@@ -96,11 +96,11 @@ def distance2m(d, unit):
         d_m = d * F_NM2M
     
     return d_m
-
+    
 """ Azimuth, bearning """
 
 REGEX_AZM_DD      = re.compile(r'^360(\.[0]+)?$|^3[0-5][0-9](\.\d+)?$|^[1-2][0-9]{2}(\.\d+)?$|^[1-9][0-9](\.\d+)?$|^\d(\.\d+)?$')
-REGEX_MAGVAR_DD      = re.compile(r'^\d+(\.d+)?$')
+REGEX_MAGVAR_DD   = re.compile(r'^\d+\.\d+$|^\d+$')
 
 def validate_azm_dd(a):
     """ Azimuth in DD (decimal degrees) format validation.
@@ -112,10 +112,14 @@ def validate_azm_dd(a):
     else:
         is_valid = NOT_VALID
     return is_valid
-    
+   
 def validate_magvar(mv):
     """ Magnetic variation validation.
     Format decimal degrees with E or W prefix (easter or western magnetic variation)
+    :param mv: string, magnetic variation
+    :return result: constant VALID or NOT_VALID
+    :return mag_var: float, value of magnetic variation if input is valid,
+                     None, of inpu si note valid
     """
     result = VALID
     mag_var = None
@@ -129,17 +133,21 @@ def validate_magvar(mv):
             if REGEX_MAGVAR_DD.match(mv[1:]): # Check if there are only numbers > 0, eg. 1.5, not -1.5
                 mag_var = float(mv[1:])
                 if prefix == 'W':
-                    result = -mag_var
+                    mag_var = -mag_var
+                    result = VALID
                 elif prefix == 'E':
-                    result = mag_var
+                    mag_var = mag_var
+                    result = VALID
                 else:
+                    mag_var = None
                     result = NOT_VALID
             else:
+                mag_var = None
                 result = NOT_VALID
 
             if (mag_var != None) and ((mag_var > 360) or (mag_var < -360)):
-                result = NOT_VALID    
-            
+                result = NOT_VALID   
+           
         except ValueError:
             result = NOT_VALID
             mag_var = None
@@ -350,36 +358,7 @@ def dist_azm_orth_offset(ref_lat, ref_lon, ref_azm, dist, offset, offset_side):
     # Calculate second point latitude, longitude, as referenc point use intermediate point
     lat2_dd, lon2_dd = vincenty_direct_solution(inter_lat_dd, inter_lon_dd, offset_azm, offset, WGS84_A, WGS84_B, WGS84_F)
     
-    return lat2_dd, lon2_dd
-
-class InputDataSet:
-    """ Simple class for storing input data"""
-    def __init__(self):
-        self.r_lat = None
-        self.r_lon = None
-        self.r_mag = None
-        self.o_lyr = ''
-        self.ep_name = ''
-        self.ep_azm = None
-        self.ep_dist = None
-        self.ep_offset = None
-#        self.ep_offset_unit = ''
-        self.ep_offset_side = ''
-    def assign_values(self,r_lat, r_lon, r_mag, o_lyr, ep_name, ep_azm, ep_dist, ep_offset, ep_offset_side):
-        self.r_lat = r_lat
-        self.r_lon = r_lon
-        self.r_mag = r_mag
-        self.o_lyr = o_lyr
-        self.ep_name = ep_name
-        self.ep_azm = ep_azm
-        self.ep_dist = ep_dist
-        self.ep_offset = ep_offset
-        self.ep_offset_side = ep_offset_side
-
-# Initialize InputDataSet variables
-input_data = InputDataSet()    
-    
-    
+    return lat2_dd, lon2_dd  
     
 w = QWidget()    
     
@@ -394,6 +373,17 @@ class qgsAzmDistOffset2LatLon:
             application at run time.
         :type iface: QgisInterface
         """
+        
+        self.r_lat = None           # Reference point latitude, decimal degrees
+        self.r_lon = None           # Reference point longitude, decimal degrees
+        self.r_mag = None           # Reference point magnetic variation
+        self.o_lyr = ''             # Output layer name
+        self.ep_name = ''           # End (second) point name
+        self.ep_azm = None          # Azimuth from reference point to end (second) point, decimal degrees
+        self.ep_dist_m = None       # Distance from reference point to end(second) point, meters
+        self.ep_offset_m = None     # Offset of the end point, meters
+        self.ep_offset = None       # Offset side of the end point
+        
         # Save reference to the QGIS interface
         self.iface = iface
         # initialize plugin directory
@@ -537,110 +527,111 @@ class qgsAzmDistOffset2LatLon:
     def get_dist_unit(self):
         """ Check which radio button is checked to get distance unit"""
         
-        if self.dlg.rbDistM.isChecked():
+        if self.dlg.cbDistanceUnit.currentText() == 'm':
             dist_unit = UOM_M
-        elif self.dlg.rbDistKM.isChecked():
+        elif self.dlg.cbDistanceUnit.currentText() == 'KM':
             dist_unit = UOM_KM
-        elif self.dlg.rbDistFeet.isChecked():
-            dist_unit = UOM_F
-        elif self.dlg.rbDistNM.isChecked():
+        elif self.dlg.cbDistanceUnit.currentText() == 'NM':
             dist_unit = UOM_NM
-        elif self.dlg.rbDistSM.isChecked():
+        elif self.dlg.cbDistanceUnit.currentText() == 'feet':
+            dist_unit = UOM_F
+        elif self.dlg.cbDistanceUnit.currentText() == 'SM':
             dist_unit = UOM_SM
-        
         return dist_unit
         
     def get_offest_unit(self):
         """ Check which radio button is checked to get offset unit"""
-        if self.dlg.rbOffsetM.isChecked():
+        if self.dlg.cbOffsetUnit.currentText() == 'm':
             offset_unit = UOM_M
-        elif self.dlg.rbOffsetKM.isChecked():
+        elif self.dlg.cbOffsetUnit.currentText() == 'KM':
             offset_unit = UOM_KM
-        elif self.dlg.rbOffsetFeet.isChecked():
-            offset_unit = UOM_F
-        elif self.dlg.rbOffsetNM.isChecked():
+        elif self.dlg.cbOffsetUnit.currentText() == 'NM':
             offset_unit = UOM_NM
-        elif self.dlg.rbOffsetSM.isChecked():
+        elif self.dlg.cbOffsetUnit.currentText() == 'feet':
+            offset_unit = UOM_F
+        elif self.dlg.cbOffsetUnit.currentText() == 'SM':
             offset_unit = UOM_SM
         return offset_unit
         
     def get_offest_side(self):
         """ Check which radio button is checked to get offset side"""
-        if self.dlg.rbSideLeft.isChecked():
+        if self.dlg.cbOffsetSide.currentText() == 'left':
             offset_side = 'LEFT'
-        elif self.dlg.rbSideRight.isChecked():
+        elif self.dlg.cbOffsetSide.currentText() == 'right':
             offset_side = 'RIGHT'
         return offset_side   
         
         
     def validate_input(self):
         """ Gets and validates if input data is correct"""
-        global input_data
         val_result = True
         err_msg = ''
         # Assign input to variables
         rp_lat_dms = self.dlg.leRefLat.text()    # Latitude of the reference point
         rp_lon_dms = self.dlg.leRefLon.text()    # Longitude of the reference point
-        rp_mv  = self.dlg.leRefMagVar.text()     # Magnetic variation of the reference point
-        lyr_out = self.dlg.leLyrOut.text()       # Output layer
-        ep_name = self.dlg.leEndPointName.text() # End (second) point name
-        ep_azm  = self.dlg.leEndPointAzm.text()  # Azimuth to end (second) point
+        mag_var  = self.dlg.leRefMagVar.text()     # Magnetic variation of the reference point
+        self.o_lyr = self.dlg.leLyrOut.text()       # Output layer
+        self.ep_name = self.dlg.leEndPointName.text() # End (second) point name
+        self.ep_azm  = self.dlg.leEndPointAzm.text()  # Azimuth to end (second) point
         ep_dist = self.dlg.leEndPointDist.text() # Distance to end (second) point
         ep_offset = self.dlg.leEndPointOffset.text() # Distance to end (second) point
         
         
-        r_lat = lat_DMS_shdp2DD(rp_lat_dms)
-        r_lon = lon_DMS_shdp2DD(rp_lon_dms)
+        self.r_lat = lat_DMS_shdp2DD(rp_lat_dms)
+        self.r_lon = lon_DMS_shdp2DD(rp_lon_dms)
         
-        if r_lat == NOT_VALID:  
+        if self.r_lat == NOT_VALID:  
             err_msg += 'Enter latitude of reference point in correct format\n'
             val_result = False
  
-        if r_lon == NOT_VALID:
+        if self.r_lon == NOT_VALID:
             err_msg += 'Enter longitude of reference point in correct format\n'
             val_result = False
         
-        if lyr_out == '':
+        if self.o_lyr == '':
             err_msg += 'Enter output layer name\n'
             val_result = False
         
-        if ep_name == '':
+        if self.ep_name == '':
             err_msg += 'Enter second point name\n'
             val_result = False
         
-        if rp_mv == '': # Magnetic Variation not enetered - assume magnetic variation as 0.0, 
-            r_mag = 0.0
+        if mag_var == '': # Magnetic Variation not enetered - assume magnetic variation as 0.0, 
+            self.r_magv = 0.0
         else:
-            if validate_magvar(rp_mv)[0] == NOT_VALID:
+            if validate_magvar(mag_var)[0] == NOT_VALID:
                 err_msg = err_msg + 'Enter magntic variation at the reference point in correct format, or leave blank if it is 0\n'
                 val_result = False
             else: 
-                r_mag = float(validate_magvar(rp_mv)[1])
+                self.r_magv = float(validate_magvar(mag_var)[1])
 
-        if validate_azm_dd(ep_azm) == NOT_VALID:
+        if validate_azm_dd(self.ep_azm) == NOT_VALID:
             err_msg += 'Enter azimuth from reference point to end point in correct format\n'
             val_result = False
             
         if validate_distance(ep_dist) == NOT_VALID:
             err_msg += 'Enter distance from reference point to end point in correct format\n'
             val_result = False
+            
         if validate_distance(ep_offset) == NOT_VALID:
             err_msg += 'Enter offset to end point in correct format\n'
             val_result = False
             
         if val_result == True:
-            ep_azm = float(ep_azm) + r_mag # Correct by magnetic variation
-            if ep_azm < 0: # Normalize azm to [0,360] Degrees
-                ep_azm += 360
-            # Check distance and offset unit, offset side
-            ep_dist_unit = self.get_dist_unit()
-            ep_offset_unit = self.get_offest_unit()
-            ep_offset_side = self.get_offest_side()
-            # Convert distance, offset to meters
-            ep_dist_m = distance2m(float(ep_dist), ep_dist_unit)
-            ep_offset_m = distance2m(float(ep_offset), ep_offset_unit)
-            
-            input_data.assign_values(r_lat, r_lon, r_mag, lyr_out, ep_name, ep_azm, ep_dist_m, ep_offset_m,  ep_offset_side)
+            self.ep_azm = float(self.ep_azm) + self.r_magv # Correct by magnetic variation
+            if self.ep_azm < 0:  #Normalize azimuth to <0,360> degrees
+                self.ep_azm += 360
+            elif self.ep_azm > 360:
+                self.ep_azm -= 360
+            # Check distance unit and convert it to meteres
+            dist_unit = self.get_dist_unit()
+            self.ep_dist_m = distance2m(float(ep_dist), dist_unit)
+            # Check offset unit and convert it to meteres
+            offset_unit = self.get_offest_unit()
+            self.ep_offset_m = distance2m(float(ep_offset), offset_unit)
+            self.ep_offset_side = self.get_offest_side()
+
+            #input_data.assign_values(r_lat, r_lon, r_mag, lyr_out, ep_name, ep_azm, ep_dist_m, ep_offset_m,  ep_offset_side)
         else:
             QMessageBox.critical(w, "Message", err_msg)
             
@@ -665,43 +656,43 @@ class qgsAzmDistOffset2LatLon:
     def add_point(self):
         global in_data
         if self.validate_input(): # If input data is correct
-            ep_lat_dd, ep_lon_dd = dist_azm_orth_offset(input_data.r_lat, input_data.r_lon, input_data.ep_azm, input_data.ep_dist, 
-                                                        input_data.ep_offset, input_data.ep_offset_side)
+            ep_lat_dd, ep_lon_dd = dist_azm_orth_offset(self.r_lat, self.r_lon, self.ep_azm, self.ep_dist_m, 
+                                                        self.ep_offset_m, self.ep_offset_side)
             ep_lat_dms = dd2dms_shdp(ep_lat_dd, C_LAT)
             ep_lon_dms = dd2dms_shdp(ep_lon_dd, C_LON)
             layers = self.iface.legendInterface().layers()
             layer_list = []   # List of layers in current (opened) QGIS project
             for layer in layers:
                 layer_list.append(layer.name())
-            if (input_data.o_lyr + '_tmp_memory') not in layer_list:
-                self.create_tmp_layer(input_data.o_lyr)
-                v_lyr = QgsVectorLayer('Point?crs=epsg:4326', input_data.o_lyr, 'memory')
-                v_lyr = self.iface.activeLayer()
-                v_lyr.startEditing()
-                v_prov = v_lyr.dataProvider()
+            if (self.o_lyr + '_tmp_memory') not in layer_list:
+                self.create_tmp_layer(self.o_lyr)
+                m_lyr = QgsVectorLayer('Point?crs=epsg:4326', self.o_lyr, 'memory')
+                m_lyr = self.iface.activeLayer()
+                m_lyr.startEditing()
+                m_prov = m_lyr.dataProvider()
                 feat = QgsFeature()
                 # Add reference point to layer
-                feat.setGeometry(QgsGeometry.fromPoint(QgsPoint(input_data.r_lon, input_data.r_lat)))      
+                feat.setGeometry(QgsGeometry.fromPoint(QgsPoint(self.r_lon, self.r_lat)))      
                 feat.setAttributes([0, 'REF_POINT', self.dlg.leRefLat.text(), self.dlg.leRefLon.text()])
-                v_prov.addFeatures([feat])
-                v_lyr.commitChanges()
+                m_prov.addFeatures([feat])
+                m_lyr.commitChanges()
                 # Add calculated point to layer
                 feat.setGeometry(QgsGeometry.fromPoint(QgsPoint(ep_lon_dd, ep_lat_dd)))      
-                feat.setAttributes([0, input_data.ep_name, ep_lat_dms, ep_lon_dms])
-                v_prov.addFeatures([feat])
-                v_lyr.commitChanges()
-                v_lyr.updateExtents() 
-            elif (input_data.o_lyr + '_tmp_memory') in layer_list:
-                v_lyr = QgsVectorLayer('Point?crs=epsg:4326', input_data.o_lyr, 'memory')
-                v_lyr = self.iface.activeLayer()
-                v_lyr.startEditing()
-                v_prov = v_lyr.dataProvider()
+                feat.setAttributes([0, self.ep_name, ep_lat_dms, ep_lon_dms])
+                m_prov.addFeatures([feat])
+                m_lyr.commitChanges()
+                m_lyr.updateExtents() 
+            elif (self.o_lyr + '_tmp_memory') in layer_list:
+                m_lyr = QgsVectorLayer('Point?crs=epsg:4326', self.o_lyr, 'memory')
+                m_lyr = self.iface.activeLayer()
+                m_lyr.startEditing()
+                m_prov = m_lyr.dataProvider()
                 feat = QgsFeature()
                 feat.setGeometry(QgsGeometry.fromPoint(QgsPoint(ep_lon_dd, ep_lat_dd)))      
-                feat.setAttributes([0, input_data.ep_name, ep_lat_dms, ep_lon_dms])
-                v_prov.addFeatures([feat])
-                v_lyr.commitChanges()
-                v_lyr.updateExtents() 
+                feat.setAttributes([0, self.ep_name, ep_lat_dms, ep_lon_dms])
+                m_prov.addFeatures([feat])
+                m_lyr.commitChanges()
+                m_lyr.updateExtents() 
         return
         
     def run(self):

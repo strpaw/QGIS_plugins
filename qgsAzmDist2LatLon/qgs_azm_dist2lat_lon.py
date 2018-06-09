@@ -346,7 +346,7 @@ class qgsAzmDist2LatLon:
         self.r_lon = None         # Reference point longitude, decimal degrees
         self.r_magv = None        # Reference point magnetic variation
         self.o_lyr = ''           # Output layer name
-        self.ep_name = ''         # End (second) name
+        self.ep_name = ''         # End (second) point name
         self.ep_azm = None        # Azimuth from reference point to end (second) point, decimal degrees
         self.ep_dist_m = None     # Distance from reference point to end(second) point, meters
         
@@ -543,7 +543,6 @@ class qgsAzmDist2LatLon:
         
         if mag_var == '': # Magnetic Variation not enetered - assume magnetic variation as 0.0, 
             self.r_magv = 0.0
-            #val_result = True
         else:
             if validate_magvar(mag_var)[0] == NOT_VALID:
                 err_msg = err_msg + 'Enter magntic variation at the reference point in correct format, or leave blank if it is 0\n'
