@@ -28,6 +28,7 @@ import resources
 # Import the code for the dialog
 from faa_nasr2shp_dialog import faa_nasr2shpDialog
 import os.path
+import copy
 import re
 
 
@@ -159,7 +160,7 @@ def natfix2shp(in_file, out_file):
     return
 
 def regulatory_awy2awy_shp(in_file, out_file):
-    """ Converts FAA NASR Regulatory AWY file to shapefile, exctracts only whole awy as poluline with awy_id as attribute
+    """ Converts FAA NASR Regulatory AWY file to shapefile, exctracts only whole awy as polyline with awy_id as attribute
     :param in_file: string, input file
     :param out_file: string, output file
     """
@@ -232,108 +233,284 @@ def regulatory_awy2awy_shp(in_file, out_file):
     del writer
     return
     
-def regulatory_awy2awy_segment_shp(in_file, out_file):
-    current_awy_id = ''
-    next_awy_id = ''
-    current_seg = ''
-    next_seg = ''
-    wpt_start = ''
-    wpt_end = ''
+def regulatory_awy2awy_segment_shp(input_file, output_file):
+    """ Converts FAA NASR Regulatory AWY file to shapefile, exctracts only segments of awy  - each record is one segment
+    :param in_file: string, input file
+    :param out_file: string, output file
+    """
     crs = QgsCoordinateReferenceSystem()
     crs.createFromId(4326) # TODO - check refernce system of AWY file
-    awy_pline_fields = QgsFields()
-    awy_pline_fields.append(QgsField("AWY_ID", QVariant.String))      # AWY Identifier
-    awy_pline_fields.append(QgsField("SEG_ID", QVariant.String))      # AWY Identifier
-    awy_pline_fields.append(QgsField("WPT_START_ID", QVariant.String))      # AWY Identifier
-    awy_pline_fields.append(QgsField("WPT_END_ID", QVariant.String))      # AWY Identifier
-    writer = QgsVectorFileWriter(out_file, "CP1250", awy_pline_fields, QGis.WKBLineString, crs, "ESRI Shapefile")
+    awy_segment_fields = QgsFields()
+    awy_segment_fields.append(QgsField("AWY_ID", QVariant.String))      # AWY Identifier
+    awy_segment_fields.append(QgsField("SEG_NR", QVariant.String))      # Segment number
+    awy_segment_fields.append(QgsField("FIX_START", QVariant.String))   # Fix - start of segment
+    awy_segment_fields.append(QgsField("FIX_END", QVariant.String))     # Fix - end of segment
+    awy_segment_fields.append(QgsField("EFF_DATE", QVariant.String))    # Effective date of segment
+    awy_segment_fields.append(QgsField("MEA", QVariant.Int))            # Minimum en route altitude of segment, feet
+    
+    writer = QgsVectorFileWriter(output_file, "CP1250", awy_segment_fields, QGis.WKBLineString, crs, "ESRI Shapefile")
+    # Set initial values
     feat = QgsFeature()
     
-    """
-    jeśli typ rekodu = AWYw i nr segmentu = biezacy nr segmentu - > wpt start, biezacy segment
-    jeśli typ rekordu = AWY1 i nr segmentu sgement +10 - nnastepny segment
-    jesli typ rekordu AWY2 i nr segmentu + 10 - konices bizeacego segmetnu
     
-    """
-    points = []
-    with open(in_file, 'r') as in_file:
-        with open(out_file, 'w') as out_file:
-            """
-            # Get first awy_id and assign its value to current_awy_id varaiable
-            line = in_file.readline()
+    with open(input_file, 'r') as in_file:
+        line = in_file.readline()
+        awy_id = line[4:9].rstrip()
+        seg_nr = int(line[10:15].lstrip())
+        in_file.seek(0)
+        
+        current_awy_id = awy_id
+        current_seg_nr = seg_nr
+        
+        prev_awy_id = ''
+        prev_seg_nr = ''
+        full_data = False
+        
+        for line in in_file:
+            # Read record type, AWY identifier, segment number of the AWY
+            rec_type = line[0:4]
             awy_id = line[4:9].rstrip()
-            current_awy_id = awy_id
-            in_file.seek(0)
-            
-            
-            while True:
-                try:
-                except StopIteration: # Loop reaches end of file
-                    try:
-                        
-                    except:
-                        pass
-                
-            """
-            line = in_file.readline()      # Read first line of AWY file
-            awy_id = line[4:9].rstrip()    # Get awy identifier from first record
             seg_nr = int(line[10:15].lstrip())
-            #current_awy_id = awy_id        # Set awy identifier from first record as current_awy_id
-            current_seg_nr = seg_nr
-            in_file.seek(0)                # Go back to begin of AWY file
-            for line in in_file:
-                rec_type = line[0:4] 
-                seg_nr = int(line[10:15].lstrip())
-                next_seg_nr = seg_nr
-                if next_seg == current_seg_nr and rec_type == 'AWY2':  # Start point biezacego segmentu
-                    wpt1_lat = line[83:97].rstrip()  # Read waypoint latitude
-                    wpt1_lon = line[97:113].rstrip() # Read waypoint longitude
+            
+            if awy_id == current_awy_id:
+                if rec_type == 'AWY1':  # Data releted to AWY segment
+                    if seg_nr == current_seg_nr:
+                        seg_prev_eff_date = line[15:25].rstrip()
+                        seg_prev_MEA = line[74:79].lstrip('0')
+                if rec_type == 'AWY2': # Data related to fixes of AWY
+                    if seg_nr == prev_seg_nr: # Start fix of segment
+                        fix_from_name = line[15:45].rstrip()
+                        from_lat = line[83:97].rstrip()  # Read fix latitude
+                        from_lon = line[97:111].rstrip() # Read fix longitude
 
-                    lat1_d = wpt1_lat[0:2]
-                    lat1_m = wpt1_lat[3:5]
-                    lat1_s = wpt1_lat[6:len(wpt1_lat) - 1]
+                        from_lat_d = from_lat[0:2]
+                        from_lat_m = from_lat[3:5]
+                        from_lat_s = from_lat[6:len(from_lat) - 1]
+                                        
+                        from_lon_d = from_lon[0:3]
+                        from_lon_m = from_lon[4:6]
+                        from_lon_s = from_lon[7:len(from_lon) - 1]
+                        
+                        
+
+                        try:
+                            from_lat_dd = float(from_lat_d) + float(from_lat_m)/60 + float(from_lat_s)/3600
+                            from_lon_dd = float(from_lon_d) + float(from_lon_m)/60 + float(from_lon_s)/3600
+                            from_fix = QgsPoint(-from_lon_dd, from_lat_dd)
+                        except:
+                            continue
+                      
+                    elif ((seg_nr - prev_seg_nr) == 10): # End fix of segment
+                        fix_to_name = line[15:45].rstrip()
+                        to_lat = line[83:97].rstrip()  # Read fix latitude
+                        to_lon = line[97:111].rstrip() # Read fix longitude
                             
-                    lon1_d = wpt1_lon[0:3]
-                    lon1_m = wpt1_lon[4:6]
-                    lon1_s = wpt1_lon[6:len(wpt1_lon) - 1]
-
-                    lat1_dd = float(lat1_d) + float(lat1_m)/60 + float(lat1_s)/3600
-                    lon1_dd = float(lon1_d) + float(lon1_m)/60 + float(lon1_s)/3600
-                    wpt_start = QgsPoint(-lon1_dd, lat1_dd)
-                    points.append(wpt_start)
+                        to_lat_d = to_lat[0:2]
+                        to_lat_m = to_lat[3:5]
+                        to_lat_s = to_lat[6:len(to_lat) - 1]
+                                        
+                        to_lon_d = to_lon[0:3]
+                        to_lon_m = to_lon[4:6]
+                        to_lon_s = to_lon[7:len(to_lon) - 1]
+                                                
+                        try:
+                            to_lat_dd = float(to_lat_d) + float(to_lat_m)/60 + float(to_lat_s)/3600
+                            to_lon_dd = float(to_lon_d) + float(to_lon_m)/60 + float(to_lon_s)/3600
+                            to_fix = QgsPoint(-to_lon_dd, to_lat_dd)
+                        except:
+                            continue
+                        
+                        full_data = True
+            
+                if full_data == True:
+                    try:
+                        feat.setGeometry(QgsGeometry.fromPolyline([from_fix, to_fix]))
+                        feat.setAttributes([awy_id,
+                                                prev_seg_nr,
+                                                fix_from_name,
+                                                fix_to_name,
+                                                seg_prev_eff_date,
+                                                seg_prev_MEA])
+                        writer.addFeature(feat)
+                    except:
+                        continue
+                        
+                    #from_fix = copy.deepcopy(to_fix)
+                    from_fix = to_fix
+                    to_fix = QgsPoint()
+                    fix_from_name = fix_to_name
+                    fix_to_name = ''
+                    full_data = False
                 
-                if next_seg_nr == (current_seg_nr + 10) and rec_type == 'AWY2' :#koniec punkt ubiezacego
-                    wpt2_lat = line[83:97].rstrip()  # Read waypoint latitude
-                    wpt2_lon = line[97:113].rstrip() # Read waypoint longitude
+                prev_seg_nr = current_seg_nr
+                prev_awy_id = current_awy_id
+                current_seg_nr = seg_nr
 
-                    lat2_d = wpt2_lat[0:2]
-                    lat2_m = wpt2_lat[3:5]
-                    lat2_s = wpt2_lat[6:len(wpt2_lat) - 1]
-                            
-                    lon2_d = wpt2_lon[0:3]
-                    lon2_m = wpt2_lon[4:6]
-                    lon2_s = wpt2_lon[6:len(wpt2_lon) - 1]
-
-                    lat2_dd = float(lat2_d) + float(lat2_m)/60 + float(lat2_s)/3600
-                    lon2_dd = float(lon2_d) + float(lon2_m)/60 + float(lon2_s)/3600
-                    wpt_end = QgsPoint(-lon2_dd, lat2_dd)
-                    points.append(wpt_end)
-                    #wpt_end = QgsPoint(-lon2_dd, lat2_dd)
-                    feat.setGeometry(QgsGeometry.fromPolyline(points))
-                    feat.setAttributes([awy_id,
-                                        current_seg_nr,
-                                        wpt_start, 
-                                        wpt_end])
-                    writer.addFeature(feat)
-                    wpt_start      = wpt_end
-                    points = []
-                    current_seg_nr = next_seg_nr
-                
+            else: # Awy is not equal current_awy_id ->  record related to new AWY starts
+                full_data = False 
+                fix_from_name = ''
+                fix_to_name = ''
+                prev_seg_nr = 10
+                if rec_type == 'AWY1':  # Data releted to AWY segment
+                    seg_prev_eff_date = line[15:25].rstrip()
+                    seg_prev_MEA = line[74:79].lstrip('0')
+                prev_awy_id = current_awy_id
+                current_seg_nr = seg_nr
+            # After taking proper action depending record type, segment number assign awy_ud read ath the begining of the
+            # loop to variable current_awy_id
+            current_awy_id = awy_id
 
     return
 
 def regulatory_awy2wpt_shp(in_file, out_file):
+    line = in_file.readline()
+    awy_id = line[4:9].rstrip()
+    current_awy_id = awy_id
+    seg_nr = int(line[10:15].lstrip())
+    current_seg_nr = seg_nr
     
+    for line in in_file:
+        rec_type = line[0:4]
+        awy_id = line[4:9].rstrip()
+        seg_nr = int(line[10:15].lstrip())
+        
+        if rec_type == 'AWY1' and seg_nr == current_seg_nr:
+            seg_c_eff_date = line[15:25].rstrip()
+            seg_c_MEA = line[74:79].lstrip('0')
+        if rec_type == 'AWY2' and awy_id == current_awy_id and seg_nr == prev_seg:
+                fix_lat1 = line[83:97].rstrip()  # Read fix latitude
+                fix_lon1 = line[97:111].rstrip() # Read fix longitude
+                fix_latlon_start = fix_lat1 + '_' + fix_lon1
+    
+    return
+
+    
+def apt2apt_shp(input_file, output_file):
+    crs = QgsCoordinateReferenceSystem()
+    crs.createFromId(4326) # TODO - check refernce system of AWY file
+    apt_fields = QgsFields()
+    apt_fields.append(QgsField("SITE_NR", QVariant.String))    # Landing facility site number
+    apt_fields.append(QgsField("LOC_ID", QVariant.String))     # Location identifier
+    apt_fields.append(QgsField("EFF_DATE", QVariant.String))   # Information effective date
+    apt_fields.append(QgsField("C_NAME", QVariant.String))     # Associated city name
+    apt_fields.append(QgsField("O_NAME", QVariant.String))     # Official facility name
+    apt_fields.append(QgsField("LAT_DMS", QVariant.String))       # Airport reference point latiitude (formatted)
+    apt_fields.append(QgsField("LON_DMS", QVariant.String))       # Airport reference point latiitude (formatted)
+    apt_fields.append(QgsField("ELEV_FEET", QVariant.String))     # Airport elevation in feet
+    apt_fields.append(QgsField("MAG_VAR", QVariant.String))       # Magnetic variation and direction
+    writer = QgsVectorFileWriter(output_file, "CP1250", apt_fields, QGis.WKBPoint, crs, "ESRI Shapefile")
+    # Set initial values
+    feat = QgsFeature()
+    
+    with open(input_file, 'r') as in_file:
+        for line in in_file:
+            rec_type = line[0:3]   # Record type
+            if rec_type == 'APT':
+                site_nr = line[3:14].rstrip()    # Landing facility site number
+                loc_ident = line[27:31].rstrip() # Location identifier
+                eff_date = line[31:41].rstrip()  # Information effective date
+                c_name = line[93:133].rstrip()   # Associated city name
+                o_name = line[133:183].rstrip()  # Official facility name
+                lat_dms = line[523:538].rstrip() # Airport reference point latiitude (formatted)
+                lon_dms = line[550:565].rstrip() # Airport reference point longitude (formatted)
+                elev_feet = line[578:585].lstrip() # Airport elevation in feet
+                mag_var = line[586:589].rstrip()   # Magnetic variation and direction
+
+                lat_d = lat_dms[0:2]
+                lat_m = lat_dms[3:5]
+                lat_s = lat_dms[6:len(lat_dms) - 1]
+                                        
+                lon_d = lon_dms[0:3]
+                lon_m = lon_dms[4:6]
+                lon_s = lon_dms[7:len(lon_dms) - 1]
+
+                lat_dd = float(lat_d) + float(lat_m)/60 + float(lat_s)/3600
+                lon_dd = float(lon_d) + float(lon_m)/60 + float(lon_s)/3600
+                
+                feat.setGeometry(QgsGeometry.fromPoint(QgsPoint(-lon_dd, lat_dd)))
+                feat.setAttributes([site_nr,
+                                    loc_ident,
+                                    eff_date,
+                                    c_name,
+                                    o_name,
+                                    lat_dms,
+                                    lon_dms,
+                                    elev_feet,
+                                    mag_var])
+                writer.addFeature(feat)
+
+    return
+
+def apt2rwy_shp(input_file, output_file):
+    crs = QgsCoordinateReferenceSystem()
+    crs.createFromId(4326) # TODO - check refernce system of AWY file
+    apt_fields = QgsFields()
+    apt_fields.append(QgsField("SITE_NR", QVariant.String))    # Landing facility site number
+    apt_fields.append(QgsField("RWY_ID", QVariant.String))     # Location identifier
+    apt_fields.append(QgsField("LENGTH", QVariant.String))   # Information effective date
+    apt_fields.append(QgsField("WIDTH", QVariant.String))     # Associated city name
+    apt_fields.append(QgsField("LAT1_DMS", QVariant.String))     # Official facility name
+    apt_fields.append(QgsField("LON1_DMS", QVariant.String))       # Airport reference point latiitude (formatted)
+    apt_fields.append(QgsField("LAT2_DMS", QVariant.String))       # Airport reference point latiitude (formatted)
+    apt_fields.append(QgsField("LON2_DMS", QVariant.String))     # Airport elevation in feet
+    writer = QgsVectorFileWriter(output_file, "CP1250", apt_fields, QGis.WKBLineString, crs, "ESRI Shapefile")
+    # Set initial values
+    feat = QgsFeature()
+    
+    with open(input_file, 'r') as in_file:
+        for line in in_file:
+            rec_type = line[0:3]   # Record type
+            if rec_type == 'RWY':
+                site_nr = line[3:14].rstrip()  # Landing facility site number
+                rwy_id = line[16:23].rstrip() # Runway identification
+                rwy_length = line[23:28].lstrip() # Physical runwey length (nearest foot)
+                rwy_width = line[28:32] # Physical runway width (nearest foor)
+                lat1_dms = line[88:103].rstrip() # Latitude of physical runway end (formatted)
+                lon1_dms = line[115:130].rstrip() # longitude of physical runway end (formatted)
+                lat2_dms = line[310:325].rstrip()
+                lon2_dms = line[337:352].rstrip()
+                
+                lat1_d = lat1_dms[0:2]
+                lat1_m = lat1_dms[3:5]
+                lat1_s = lat1_dms[6:len(lat1_dms) - 1]
+                                        
+                lon1_d = lon1_dms[0:3]
+                lon1_m = lon1_dms[4:6]
+                lon1_s = lon1_dms[7:len(lon1_dms) - 1]
+
+                
+                
+                lat2_d = lat2_dms[0:2]
+                lat2_m = lat2_dms[3:5]
+                lat2_s = lat2_dms[6:len(lat2_dms) - 1]
+                                        
+                lon2_d = lon2_dms[0:3]
+                lon2_m = lon2_dms[4:6]
+                lon2_s = lon2_dms[7:len(lon2_dms) - 1]
+                try:
+                
+                    lat1_dd = float(lat1_d) + float(lat1_m)/60 + float(lat1_s)/3600
+                    lon1_dd = float(lon1_d) + float(lon1_m)/60 + float(lon1_s)/3600
+                
+                    lat2_dd = float(lat2_d) + float(lat2_m)/60 + float(lat2_s)/3600
+                    lon2_dd = float(lon2_d) + float(lon2_m)/60 + float(lon2_s)/3600
+
+                    p1 = QgsPoint(-lon1_dd, lat1_dd)
+                    p2 = QgsPoint(-lon2_dd, lat2_dd)
+                
+                
+                    feat.setGeometry(QgsGeometry.fromPolyline([p1, p2]))
+                            
+                    feat.setAttributes([site_nr,
+                                                    rwy_id,
+                                                    rwy_length,
+                                                    rwy_width,
+                                                    lat1_dms,
+                                                    lon1_dms])
+                    writer.addFeature(feat)
+                except:
+                    continue
+        
     return
     
 class faa_nasr2shp:
@@ -502,6 +679,12 @@ class faa_nasr2shp:
         elif self.dlg.cbeNasrFile.currentIndex() == 2:
             self.input_file = QFileDialog.getOpenFileName(self.dlg, "Select input file ", "", '*.txt')
             self.dlg.leInputFile.setText(self.input_file)
+        elif self.dlg.cbeNasrFile.currentIndex() == 3:
+            self.input_file = QFileDialog.getOpenFileName(self.dlg, "Select input file ", "", '*.txt')
+            self.dlg.leInputFile.setText(self.input_file)
+        elif self.dlg.cbeNasrFile.currentIndex() == 4:
+            self.input_file = QFileDialog.getOpenFileName(self.dlg, "Select input file ", "", '*.txt')
+            self.dlg.leInputFile.setText(self.input_file)
         # TODO - other types of NASR data files
         return
     
@@ -519,6 +702,10 @@ class faa_nasr2shp:
             regulatory_awy2awy_shp(self.input_file, self.output_file)
         elif self.dlg.cbeNasrFile.currentIndex() == 2: # seg
             regulatory_awy2awy_segment_shp(self.input_file, self.output_file)
+        elif self.dlg.cbeNasrFile.currentIndex() == 3: # APT - to Airport data
+            apt2apt_shp(self.input_file, self.output_file)
+        elif self.dlg.cbeNasrFile.currentIndex() == 4: # APT - to Airport data
+            apt2rwy_shp(self.input_file, self.output_file)
         return
     def run(self):
         """Run method that performs all the real work"""

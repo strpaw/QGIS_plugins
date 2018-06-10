@@ -99,6 +99,16 @@
      <string>Regulatory AWY (AWY file) - awys segments</string>
     </property>
    </item>
+   <item>
+    <property name="text">
+     <string>Airports and Other Landing Facilities (APT) - Airports</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Airports and Other Landing Facilities (APT) - Rynways</string>
+    </property>
+   </item>
   </widget>
   <widget class="QPushButton" name="pbConvert2shp">
    <property name="geometry">
