@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>562</width>
-    <height>416</height>
+    <width>573</width>
+    <height>415</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -19,41 +19,25 @@
      <x>10</x>
      <y>110</y>
      <width>541</width>
-     <height>291</height>
+     <height>261</height>
     </rect>
    </property>
    <property name="tabPosition">
     <enum>QTabWidget::South</enum>
    </property>
    <property name="currentIndex">
-    <number>1</number>
+    <number>0</number>
    </property>
    <widget class="QWidget" name="tab">
     <attribute name="title">
      <string>AzmDist</string>
     </attribute>
-    <widget class="QDialogButtonBox" name="button_box_2">
-     <property name="geometry">
-      <rect>
-       <x>410</x>
-       <y>200</y>
-       <width>111</width>
-       <height>32</height>
-      </rect>
-     </property>
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel</set>
-     </property>
-    </widget>
     <widget class="QGroupBox" name="gbSecondPoint">
      <property name="geometry">
       <rect>
        <x>10</x>
        <y>10</y>
-       <width>471</width>
+       <width>501</width>
        <height>141</height>
       </rect>
      </property>
@@ -137,7 +121,7 @@
        <rect>
         <x>290</x>
         <y>100</y>
-        <width>92</width>
+        <width>51</width>
         <height>27</height>
        </rect>
       </property>
@@ -171,8 +155,8 @@
     <widget class="QPushButton" name="pbAddPoint">
      <property name="geometry">
       <rect>
-       <x>30</x>
-       <y>210</y>
+       <x>390</x>
+       <y>180</y>
        <width>120</width>
        <height>30</height>
       </rect>
@@ -186,28 +170,12 @@
     <attribute name="title">
      <string>CsvAzmDist</string>
     </attribute>
-    <widget class="QDialogButtonBox" name="button_box">
-     <property name="geometry">
-      <rect>
-       <x>410</x>
-       <y>200</y>
-       <width>111</width>
-       <height>32</height>
-      </rect>
-     </property>
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel</set>
-     </property>
-    </widget>
     <widget class="QGroupBox" name="gbInOutCsv">
      <property name="geometry">
       <rect>
        <x>10</x>
        <y>10</y>
-       <width>511</width>
+       <width>501</width>
        <height>131</height>
       </rect>
      </property>
@@ -248,7 +216,7 @@
        <rect>
         <x>200</x>
         <y>30</y>
-        <width>301</width>
+        <width>291</width>
         <height>27</height>
        </rect>
       </property>
@@ -258,7 +226,7 @@
        <rect>
         <x>200</x>
         <y>80</y>
-        <width>301</width>
+        <width>291</width>
         <height>27</height>
        </rect>
       </property>
@@ -267,10 +235,10 @@
     <widget class="QPushButton" name="pbCalcCSV">
      <property name="geometry">
       <rect>
-       <x>50</x>
-       <y>200</y>
+       <x>390</x>
+       <y>180</y>
        <width>120</width>
-       <height>40</height>
+       <height>30</height>
       </rect>
      </property>
      <property name="sizePolicy">
@@ -289,9 +257,9 @@
      </property>
      <property name="geometry">
       <rect>
-       <x>190</x>
+       <x>210</x>
        <y>130</y>
-       <width>191</width>
+       <width>61</width>
        <height>27</height>
       </rect>
      </property>
@@ -354,9 +322,9 @@
    <widget class="QLineEdit" name="leRefLat">
     <property name="geometry">
      <rect>
-      <x>30</x>
+      <x>10</x>
       <y>60</y>
-      <width>113</width>
+      <width>140</width>
       <height>27</height>
      </rect>
     </property>
@@ -366,7 +334,7 @@
      <rect>
       <x>170</x>
       <y>60</y>
-      <width>113</width>
+      <width>140</width>
       <height>27</height>
      </rect>
     </property>
@@ -374,7 +342,7 @@
    <widget class="QLineEdit" name="leRefMagVar">
     <property name="geometry">
      <rect>
-      <x>320</x>
+      <x>340</x>
       <y>60</y>
       <width>113</width>
       <height>27</height>
@@ -384,7 +352,7 @@
    <widget class="QLabel" name="lbRefLat">
     <property name="geometry">
      <rect>
-      <x>30</x>
+      <x>10</x>
       <y>30</y>
       <width>111</width>
       <height>21</height>
@@ -410,7 +378,7 @@
    <widget class="QLabel" name="lbRefMagVar">
     <property name="geometry">
      <rect>
-      <x>310</x>
+      <x>340</x>
       <y>30</y>
       <width>151</width>
       <height>21</height>
@@ -420,6 +388,22 @@
      <string>Magnetic variation</string>
     </property>
    </widget>
+  </widget>
+  <widget class="QDialogButtonBox" name="button_box">
+   <property name="geometry">
+    <rect>
+     <x>400</x>
+     <y>360</y>
+     <width>120</width>
+     <height>30</height>
+    </rect>
+   </property>
+   <property name="orientation">
+    <enum>Qt::Horizontal</enum>
+   </property>
+   <property name="standardButtons">
+    <set>QDialogButtonBox::Cancel</set>
+   </property>
   </widget>
  </widget>
  <resources/>

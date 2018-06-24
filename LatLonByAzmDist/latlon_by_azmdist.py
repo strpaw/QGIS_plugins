@@ -150,7 +150,7 @@ def checkDistance(d):
     return result
     
 def km2m(km):
-    """ Converts kilimeters to meters
+    """ Converts kilometers to meters
     :param km: float, value in kilometers
     :return: value in meters
     """
@@ -757,7 +757,7 @@ class LatLonByAzmDist:
         else:
             self.rpLatDD = parseDMS2DD(rpLatDMS, V_LAT)
             if self.rpLatDD == NOT_VALID:  
-                errMsg += 'Latitude wrong fromat!\n'
+                errMsg += 'Reference point latitude wrong fromat!\n'
                 self.checkResult = False
 
         if rpLonDMS == '':
@@ -766,7 +766,7 @@ class LatLonByAzmDist:
         else:
             self.rpLonDD = parseDMS2DD(rpLonDMS, V_LON)
             if self.rpLonDD == NOT_VALID:  
-                errMsg += 'Longitude wrong fromat!\n'
+                errMsg += 'Reference point longitude wrong fromat!\n'
                 self.checkResult = False
         
         if magVar == '': # Magnetic Variation not enetered - assume magnetic variation as 0.0,
@@ -786,6 +786,12 @@ class LatLonByAzmDist:
             self.checkResult = False
             
         if self.checkResult == True:
+            azm = float(self.azimuth) + self.rpMagVar
+            if azm < 0:
+                azm += 360
+            elif azm > 360:
+                azm -= 360
+            self.azimuth = azm
             self.distanceUnit = self.getDistanceUnit()
             self.distance_m = toMeters(float(self.distance), self.distanceUnit)
         else:
@@ -813,7 +819,7 @@ class LatLonByAzmDist:
         if rpLatDMS != '':
             self.rpLatDD = parseDMS2DD(rpLatDMS, V_LAT)
             if self.rpLatDD == NOT_VALID:  
-                errMsg += 'Latitude wrong fromat!\n'
+                errMsg += 'Reference point latitude wrong fromat!\n'
                 checkResult = False
 
         if rpLonDMS == '':
@@ -822,7 +828,7 @@ class LatLonByAzmDist:
         if rpLonDMS != '':
             self.rpLonDD = parseDMS2DD(rpLonDMS, V_LON)
             if self.rpLonDD == NOT_VALID:  
-                errMsg += 'Longitude wrong fromat!\n'
+                errMsg += 'Reference point longitude wrong fromat!\n'
                 checkResult = False
         
         if magVar == '': # Magnetic Variation not enetered - assume magnetic variation as 0.0,
@@ -830,7 +836,7 @@ class LatLonByAzmDist:
         else:
             self.rpMagVar = checkMagVar(magVar)
             if self.rpMagVar == NOT_VALID:
-                errMsg = errMsg + 'Magnetic variation wrong formar!\n'
+                errMsg = errMsg + 'Magnetic variation wrong format!\n'
                 checkResult = False
                 
         if self.inputFile == '':
