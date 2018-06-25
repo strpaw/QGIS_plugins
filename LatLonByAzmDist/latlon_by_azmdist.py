@@ -345,8 +345,8 @@ def checkHLetterDelimitedDMS_DM(c, cType):
             
         if len(dms_t) == 3:   # 3 elments in tuple - assumes it is DMS format (DD MM SS.sss)
             try:
-                d = int(dms_t[0])
-                m = int(dms_t[1])
+                d = float(dms_t[0])
+                m = float(dms_t[1])
                 s = float(dms_t[2])
                 if d < 0 or m < 0 or m >= 60 or s < 0 or s >= 60:
                     dd = NOT_VALID
@@ -363,7 +363,7 @@ def checkHLetterDelimitedDMS_DM(c, cType):
                 dd = NOT_VALID
         elif len(dms_t) == 2:   # 2 elments in tuple - assumes it is DM format (DD MM.mmmm)
             try:
-                d = int(dms_t[0])
+                d = float(dms_t[0])
                 m = float(dms_t[1])
                 if (d < 0) or (m < 0) or (m >= 60):
                     dd = NOT_VALID
@@ -563,11 +563,11 @@ class LatLonByAzmDist:
         self.distance = None      # Distance (radius) from refrence point to end point
         self.distance_m = None    # Distance (radius) from refrence point to end point in meters
         self.azimuth = None       # Azimuth, angular coordinate from reference point to end point
+        self.bearing = None       # Bearing
         self.distanceUnit = UOM_M # Unit of measure of distance, default meters
         self.inputFile = ''      # CSV input file
         self.outputFile = ''     # CSV output file
         self.outLyrName = ''
-        self.checkResult = None
         # Save reference to the QGIS interface
         self.iface = iface
         # initialize plugin directory
@@ -741,33 +741,33 @@ class LatLonByAzmDist:
         
     def checkAzmDistInput(self):
         """ Gets and validates input data  for AzmDist """
-        self.checkResult = True     # If input data is  not correct val_result will be set to False
+        checkResult = True    # If input data is  not correct val_result will be set to False
         errMsg = ''           # Variable to store error message, it depends on what have been enetered into line edits
         # Assign input to variables
         rpLatDMS = self.dlg.leRefLat.text()        # Latitude of the reference point
         rpLonDMS = self.dlg.leRefLon.text()        # Longitude of the reference point
         magVar = self.dlg.leRefMagVar.text()    # Magnetic variation of the reference point
         self.epName = self.dlg.leEpName.text() 
-        self.azimuth = self.dlg.leEpAzimuth.text()  
+        self.bearing = self.dlg.leEpAzmBrng.text()  
         self.distance = self.dlg.leEpDistance.text() 
 
         if rpLatDMS == '':
             errMsg += 'Enter latitude of the reference point!\n'
-            self.checkResult = False
+            checkResult = False
         else:
             self.rpLatDD = parseDMS2DD(rpLatDMS, V_LAT)
             if self.rpLatDD == NOT_VALID:  
                 errMsg += 'Reference point latitude wrong fromat!\n'
-                self.checkResult = False
+                checkResult = False
 
         if rpLonDMS == '':
             errMsg += 'Enter longitude of the reference point!\n'
-            self.checkResult = False
+            checkResult = False
         else:
             self.rpLonDD = parseDMS2DD(rpLonDMS, V_LON)
             if self.rpLonDD == NOT_VALID:  
                 errMsg += 'Reference point longitude wrong fromat!\n'
-                self.checkResult = False
+                checkResult = False
         
         if magVar == '': # Magnetic Variation not enetered - assume magnetic variation as 0.0,
             self.rpMagVar = 0.0
@@ -775,18 +775,18 @@ class LatLonByAzmDist:
             self.rpMagVar = checkMagVar(magVar)
             if self.rpMagVar == NOT_VALID:
                 errMsg = errMsg + 'Magnetic variation wrong formar!\n'
-                self.checkResult = False
+                checkResult = False
             
-        if checkAzimuth(self.azimuth) == NOT_VALID:
+        if checkAzimuth(self.bearing) == NOT_VALID:
             errMsg += 'Azimuth wrong fromat!\n'
-            self.checkResult = False
+            checkResult = False
             
         if checkDistance(self.distance) == NOT_VALID:
             errMsg += 'Distance wrong fromat!\n'
-            self.checkResult = False
+            checkResult = False
             
-        if self.checkResult == True:
-            azm = float(self.azimuth) + self.rpMagVar
+        if checkResult == True:
+            azm = float(self.bearing) + self.rpMagVar
             if azm < 0:
                 azm += 360
             elif azm > 360:
@@ -796,7 +796,7 @@ class LatLonByAzmDist:
             self.distance_m = toMeters(float(self.distance), self.distanceUnit)
         else:
             QMessageBox.critical(w, "Message", errMsg)
-        return
+        return checkResult
         
     def checkCSVAzmDistInput(self):
         """ Gets and validates input data  for CSVAzmDist """
@@ -872,14 +872,13 @@ class LatLonByAzmDist:
         QgsMapLayerRegistry.instance().addMapLayers([tmpLyr])
     
     def addPoint(self):
-        self.checkAzmDistInput()
-        if self.checkResult == True:
+        if self.checkAzmDistInput() == True:
             epLatDD, epLonDD = vincenty_direct_solution(self.rpLatDD, self.rpLonDD, float(self.azimuth), float(self.distance_m), 
                                                         WGS84_A, WGS84_B, WGS84_F)
             
             epLatDMS = DD2HLetterDelimitedDMS(epLatDD, V_LAT, 3)
             epLonDMS = DD2HLetterDelimitedDMS(epLonDD, V_LON, 3)
-            polarCoord = getPolarCoordString(self.azimuth, self.rpMagVar, self.distance, self.distanceUnit)
+            polarCoord = getPolarCoordString(self.bearing, self.rpMagVar, self.distance, self.distanceUnit)
             
             layers = self.iface.legendInterface().layers()
             layerList = []   # List of layers in current (opened) QGIS project
