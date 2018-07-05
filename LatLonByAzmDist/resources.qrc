@@ -1,5 +1,0 @@
-<RCC>
-    <qresource prefix="/plugins/LatLonByAzmDist" >
-        <file>icon.png</file>
-    </qresource>
-</RCC>
