@@ -8,7 +8,7 @@
         begin                : 2018-05-22
         git sha              : $Format:%H$
         copyright            : (C) 2018 by Pawel Strzelewicz
-        email                : @
+        email                : pawel.strzelewicz@wp.pl
  ***************************************************************************/
 
 /***************************************************************************
@@ -21,14 +21,118 @@
  ***************************************************************************/
 """
 from PyQt4.QtCore import *
-from PyQt4.QtGui import QAction, QIcon, QFileDialog
+from PyQt4.QtGui import QAction, QIcon, QFileDialog, QMessageBox, QWidget
 from qgis.core import *
+from osgeo import ogr, osr
 # Initialize Qt resources from file resources.py
 import resources
 # Import the code for the dialog
 from faa_dof2shp_dialog import FAA_DOF2shpDialog
 import os.path
 
+oas_codes = {'01' : 'Alabama',
+             '02' : 'Alaska',
+             '04' : 'Arizona',
+             '05' : 'Arkansas',
+             '06' : 'California', 
+             '08' : 'Colorado', 
+             '09' : 'Connecticut', 
+             '10' : 'Delaware', 
+             '11' : 'DC', 
+             '12' : 'Florida', 
+             '13' : 'Georgia', 
+             '15' : 'Hawaii', 
+             '16' : 'Idaho',
+             '17' : 'Illinois', 
+             '18' : 'Indiana', 
+             '19' : 'Iowa', 
+             '20' : 'Kansas', 
+             '21' : 'Kentucky', 
+             '22' : 'Louisiana', 
+             '23' : 'Maine', 
+             '24' : 'Maryland', 
+             '25' : 'Massachusetts', 
+             '26' : 'Michigan', 
+             '27' : 'Minnesota', 
+             '28' : 'Mississippi', 
+             '29' : 'Missouri', 
+             '30' : 'Montana', 
+             '31' : 'Nebraska', 
+             '32' : 'Nevada', 
+             '33' : 'New Hampshire', 
+             '34' : 'New Jersey', 
+             '35' : 'New Mexico', 
+             '36' : 'New York', 
+             '37' : 'North Carolina', 
+             '38' : 'North Dakota', 
+             '39' : 'Ohio', 
+             '40' : 'Oklahoma', 
+             '41' : 'Oregon', 
+             '42' : 'Pennsylvania', 
+             '44' : 'Rhode Island', 
+             '45' : 'South Carolina', 
+             '46' : 'South Dakota', 
+             '47' : 'Tennessee', 
+             '48' : 'Texas', 
+             '49' : 'Utah', 
+             '50' : 'Vermont', 
+             '51' : 'Virginia', 
+             '53' : 'Washington', 
+             '54' : 'West Virginia', 
+             '55' : 'Wisconsin', 
+             '56' : 'Wyoming', 
+             'CA' : 'Canada', 
+             'MX' : 'Mexico', 
+             'PR' : 'Puerto Rico', 
+             'BS' : 'Bahamas', 
+             'AG' : 'Antigua and Barbuda', 
+             'AI' : 'Anguilla', 
+             'NL' : 'Netherlands Antilles (formerly AN)', 
+             'AW' : 'Aruba', 
+             'CU' : 'Cuba', 
+             'DM' : 'Dominica', 
+             'DO' : 'Dominican Republic', 
+             'GP' : 'Guadeloupe',
+             'HN' : 'Honduras', 
+             'HT' : 'Haiti', 
+             'JM' : 'Jamaica', 
+             'KN' : 'St. Kitts and Nevis', 
+             'KY' : 'Cayman Islands', 
+             'LC' : 'Saint Lucia',
+             'MQ' : 'Martinique', 
+             'MS' : 'Montserrat',
+             'TC' : 'Turks and Caicos Islands', 
+             'VG' : 'British Virgin Islands', 
+             'VI' : 'Virgin Islands', 
+             'AS' : 'American Samoa',
+             'FM' : 'Federated States of Micronesia', 
+             'GU' : 'Guam', 
+             'KI' : 'Kiribati', 
+             'MH' : 'Marshall Islands', 
+             'QM' : 'Midway Islands (formerly MI)', 
+             'MP' : 'Northern Mariana Islands', 
+             'PW' : 'Palau', 
+             'RU' : 'Russia', 
+             'TK' : 'Tokelau', 
+             'QW' : 'Wake Island (formerly WQ)', 
+             'WS' : 'Samoa'}
+
+def FAA_DOF_dms2dd(dms):
+    """ Converts DMS format of latitude, longitude in DOF file to DD format 
+    param: dms: string, latitude orlongitude in degrees, minutes, seconds format
+    return: dd: float, latitude or longitude in decimal degrees format
+    """
+    h = dms[len(dms)-1]
+    dms_m = dms[:len(dms) - 1]
+    dms_t = dms_m.split(' ')
+    d = float(dms_t[0])
+    m = float(dms_t[1])
+    s = float(dms_t[2])
+    
+    dd = d + m/60 + s/3600
+    if h in ['W', 'S']:
+        dd = - dd
+    return dd
 
 def decode_FAA_DOF_verif_status(code):
     """ Decode verification status
@@ -42,22 +146,22 @@ def decode_FAA_DOF_verif_status(code):
     else: 
         verif_status = 'NO_DATA'
     return verif_status
-
-def decode_FAA_DOF_lighting(code):
-    """ Decode lighting information
-    :param code: string
-    :return lighting: string
+    
+def decode_FAA_DOF_islighted(code):
+    """ Decode lighting information - lighted, not lighted, no data
+    :param code: string, lighting code
+    :return islighted: string
     """
     if code in ['R', 'D', 'H', 'M','S', 'F', 'C', 'L']:
-        lighting = 'LIGHTED'
+        islighted = 'LIGHTED'
     elif code == 'N':
-        lighting = 'NONE'
+        islighted = 'NONE'
     elif code == 'U':
-        lighting = 'UNKNOWN'
+        islighted = 'UNKNOWN'
     else:
-        lighting = 'NO_DATA'
-    return lighting
-
+        islighted = 'NO_DATA'
+    return islighted
+    
 def decode_FAA_DOF_h_acc(code):
     """ Decode horizonat accuracy information
     :param code: string
@@ -94,8 +198,8 @@ def decode_FAA_DOF_h_acc(code):
     else:
         h_acc_value = -1 # indicates unknown
         h_acc_uom = 'UNKNOWN'
-    return h_acc_value, h_acc_uom    
-    
+    return h_acc_value, h_acc_uom
+
 def decode_FAA_DOF_v_acc(code):
     """ Decode vertical accuracy information
     :param code: string
@@ -122,22 +226,24 @@ def decode_FAA_DOF_v_acc(code):
     else:
         v_acc_value = -1
     return v_acc_value
-    
-def decode_FAA_DOF_marking(code):
+
+def decode_FAA_DOF_ismarked(code):
     """ Decode marking information
     :param code: string
-    :return marking: string
+    :return ismarked: string, information about marking
     """
     if code in ['P', 'W', 'M', 'F', 'S']:
-        marking = 'MARKER'
+        ismarked = 'MARKED'
     elif code == 'N':
-        marking = 'NONE'
+        ismarked = 'NONE'
     elif code == 'U':
-        marking = 'UNKNOWN'
+        ismarked = 'UNKNOWN'
     else:
-        marking = 'NO_DATA'
-    return marking    
+        ismarked = 'NO_DATA'
+    return ismarked
     
+w = QWidget()
+
 class FAA_DOF2shp:
     """QGIS Plugin Implementation."""
 
@@ -304,101 +410,97 @@ class FAA_DOF2shp:
         self.output_file = QFileDialog.getSaveFileName(self.dlg, "Select output shp file ", "", '*.shp')
         self.dlg.leOutputFile.setText(self.output_file)
         return
+    
+    def check_input(self):
+        result = True
+        err_msg = ''
+        if self.input_file == '':
+            err_msg += 'Select DOF file\n'
+            result = False
+        
+        if self.output_file == '':
+            err_msg += 'Select output shapefile \n'
+            result = False
+         
+        if result == False:
+            QMessageBox.critical(w, "Message", err_msg)
+        return result
         
     def convert_FAA_DOF2shp(self):
-        # Set reference system
-        crs = QgsCoordinateReferenceSystem()
-        crs.createFromId(4326)
-        # Defining fileds for feature attributes
-        obs_fields = QgsFields()
-        obs_fields.append(QgsField("OAS_NUMBER", QVariant.String))  # Obstacle OAS number
-        obs_fields.append(QgsField("VERIF_STAT", QVariant.String))  # Verification status
-        obs_fields.append(QgsField("CTRY_IDENT", QVariant.String))  # Country identifier
-        obs_fields.append(QgsField("ST_IDENT", QVariant.String))    # State identifier
-        obs_fields.append(QgsField("LAT_DMS", QVariant.String))     # Obstacle latitude, DMS format
-        obs_fields.append(QgsField("LON_DMS", QVariant.String))     # Obstacle longitude, DMS format
-        obs_fields.append(QgsField("TYPE", QVariant.String))        # Obstacle type
-        obs_fields.append(QgsField("AGL_FEET", QVariant.Int))       # Above ground level height, feet
-        obs_fields.append(QgsField("AMSL_FEET", QVariant.Int))      # Above mean sea level height, feet
-        obs_fields.append(QgsField("H_ACC", QVariant.Int))          # Horizontal accuracy
-        obs_fields.append(QgsField("H_ACC_UOM", QVariant.String))   # Horizontal accuracy - unit of measurement
-        obs_fields.append(QgsField("V_ACC", QVariant.Int))          # Vertical accuuracy
-        obs_fields.append(QgsField("V_ACC_UOM", QVariant.String))   # Vertical accuuracy - unit of measurement
-        obs_fields.append(QgsField("LIGHTING", QVariant.String))    # Information related to lighting: LIGHTED, NONE, UNKNOWN, NO_DATA
-        obs_fields.append(QgsField("MARK_IND", QVariant.String))    # Information related to marking: MARKED, NONE, UNKNOWN, NO_DATA
+        if self.check_input() == True:
+            # Set referefnce system
+            crs = QgsCoordinateReferenceSystem()
+            crs.createFromId(4326)
+            # Defining fileds for feature attributes
+            dof_fields = QgsFields()
+            dof_fields.append(QgsField("ST_NAME", QVariant.String))# US state or country code
+            dof_fields.append(QgsField("ID", QVariant.String))          # Obstacle OAS number = obstacle id
+            dof_fields.append(QgsField("VERIF_STAT", QVariant.String))  # Verification status
+            dof_fields.append(QgsField("LAT_DMS", QVariant.String))     # Obstacle latitude, DMS format
+            dof_fields.append(QgsField("LON_DMS", QVariant.String))     # Obstacle longitude, DMS format
+            dof_fields.append(QgsField("TYPE", QVariant.String))        # Obstacle type
+            dof_fields.append(QgsField("AGL_FEET", QVariant.Int))       # Above ground level height, feet
+            dof_fields.append(QgsField("AMSL_FEET", QVariant.Int))      # Above mean sea level height, feet
+            dof_fields.append(QgsField("H_ACC", QVariant.Int))          # Horizontal accuracy
+            dof_fields.append(QgsField("H_ACC_UOM", QVariant.String))   # Horizontal accuracy - unit of measurement
+            dof_fields.append(QgsField("V_ACC", QVariant.Int))          # Vertical accuuracy
+            dof_fields.append(QgsField("V_ACC_UOM", QVariant.String))   # Vertical accuuracy - unit of measurement
+            dof_fields.append(QgsField("LIGHTING", QVariant.String))    # Information related to lighting: LIGHTED, NONE, UNKNOWN, NO_DATA
+            dof_fields.append(QgsField("MARKING", QVariant.String))     # Information related to marking: MARKED, NONE, UNKNOWN, NO_DATA
+            dof_fields.append(QgsField("JDATE", QVariant.String))       # Julian date, date of action
+            
+            writer = QgsVectorFileWriter(self.output_file, "CP1250", dof_fields, QGis.WKBPoint, crs, "ESRI Shapefile")
+            
+            feat = QgsFeature()
 
-        writer = QgsVectorFileWriter(self.output_file, "CP1250", obs_fields, QGis.WKBPoint, crs, "ESRI Shapefile")
-        
-        feat = QgsFeature()
-
-        with open (self.input_file, 'r') as DOF_file:
-            line_nr = -1
-            for line in DOF_file:
-                try:
-                    line_nr += 1  # TO DO: if line_nr is > than max 'int value'
-                    if line_nr < 4:   # Skip first 4 lines
+            with open (self.input_file, 'r') as DOF_file:
+                line_nr = 0
+                for line in DOF_file:
+                    try:
+                        line_nr += 1
+                        if line_nr < 5:   # Skip first 4 lines
+                            continue
+                        else:
+                            st_ctry_code = oas_codes.get(line[0:2])
+                            obs_id = line[0:9]
+                            verif_st = decode_FAA_DOF_verif_status(line[10])
+                            lat_dms = line[35:47]
+                            lon_dms = line[48:61]
+                            
+                            lat_dd = FAA_DOF_dms2dd(lat_dms)
+                            lon_dd = FAA_DOF_dms2dd(lon_dms)
+                            
+                            o_type = line[62:80].rstrip()
+                            agl_feet = int(line[83:88])
+                            amsl_feet = int(line[89:95])
+                            lighting = decode_FAA_DOF_islighted(line[95])
+                            h_acc_value, h_acc_uom = decode_FAA_DOF_h_acc(line[97])
+                            v_acc_value = decode_FAA_DOF_v_acc(line[99])
+                            v_acc_uom = 'FEET'
+                            marking = decode_FAA_DOF_ismarked(line[101])
+                            jdate = line[120:127]
+                            
+                            feat.setGeometry(QgsGeometry.fromPoint(QgsPoint(lon_dd, lat_dd)))
+                            feat.setAttributes([st_ctry_code,
+                                                obs_id,
+                                                verif_st,
+                                                lat_dms,
+                                                lon_dms,
+                                                o_type,
+                                                agl_feet,
+                                                amsl_feet,
+                                                h_acc_value,
+                                                h_acc_uom,
+                                                v_acc_value,
+                                                v_acc_uom,
+                                                lighting,
+                                                marking,
+                                                jdate])
+                            writer.addFeature(feat)
+                    except:
                         continue
-                    else:
-                        oas_nr = line[0:9]
-                        verif_st = decode_FAA_DOF_verif_status(line[10])
-                        ctry_id = line[12:14]
-                        if ctry_id == '  ':
-                            ctry_id = 'NO_DATA'
-                            
-                        st_id = line[15:17]
-                        if st_id == '  ':
-                           st_id = 'NO_DATA'
-                        
-                        lat_dms = line[35:47]
-                        lat_d = line[35:37]
-                        lat_m = line[38:40]
-                        lat_s = line[41:46]
-                        lat_h = line[46]
-                        lat_dd = float(lat_d) + float(lat_m)/60 + float(lat_s)/3600
-                        if lat_h == 'S':
-                            lat_dd = -lat_dd
-                        
-                        lon_dms = line[48:61]
-                        lon_d = line[48:51]
-                        lon_m = line[52:54]
-                        lon_s = line[55:60]
-                        lon_h = line[60]
-                        lon_dd = float(lon_d) + float(lon_m)/60 + float(lon_s)/3600
-                        if lon_h == 'W':
-                            lon_dd = -lon_dd
-                            
-                        o_type = line[62:80].rstrip()
-                        agl_feet = int(line[83:88])
-                        amsl_feet = int(line[89:95])
-                        lighting = decode_FAA_DOF_lighting(line[95])
-                        h_acc_value, h_acc_uom = decode_FAA_DOF_h_acc(line[97])
-                        v_acc_value = decode_FAA_DOF_v_acc(line[99])
-                        v_acc_uom = 'FEET'
-                        marking = decode_FAA_DOF_marking(line[101])
-                        
-                        feat.setGeometry(QgsGeometry.fromPoint(QgsPoint(lon_dd, lat_dd)))
-                        feat.setAttributes([oas_nr,
-                                            verif_st,
-                                            ctry_id,
-                                            st_id,
-                                            lat_dms,
-                                            lon_dms,
-                                            o_type,
-                                            agl_feet,
-                                            amsl_feet,
-                                            h_acc_value,
-                                            h_acc_uom,
-                                            v_acc_value,
-                                            v_acc_uom,
-                                            lighting,
-                                            marking])
-                      
-                        writer.addFeature(feat)
-
-                except:
-                    pass #TO DO - information if DOF line is not in correct format
-
-        del writer
+                   
+            del writer
 
         return
 
