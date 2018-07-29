@@ -86,27 +86,12 @@
    </property>
    <item>
     <property name="text">
-     <string>Enroute National Fix Program Significant Points (NATFIX file)</string>
-    </property>
-   </item>
-   <item>
-    <property name="text">
      <string>Regulatory AWY (AWY file) - awys</string>
     </property>
    </item>
    <item>
     <property name="text">
      <string>Regulatory AWY (AWY file) - awys segments</string>
-    </property>
-   </item>
-   <item>
-    <property name="text">
-     <string>Airports and Other Landing Facilities (APT) - Airports</string>
-    </property>
-   </item>
-   <item>
-    <property name="text">
-     <string>Airports and Other Landing Facilities (APT) - Rynways</string>
     </property>
    </item>
   </widget>

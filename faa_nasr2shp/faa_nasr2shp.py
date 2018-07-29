@@ -73,91 +73,7 @@ def dms_dshl2dd_s(dms):
         dd = NOT_VALID
     return
 
-NATFIX_NAVAID = ['NDB', 'NDB/DME', 'TACAN', 'UHF/NDB', 'VOR', 'VOR/DME', 'VORTAC']
 
-def decode_natfix_wpt_type(code):
-    """ Decode NATFIX wyapoint types
-    :param code: string, code waypoint in NATFIX file
-    :return wpt_type: string, waypoint type
-    """
-    if code == 'ARPT':
-        wpt_type = 'ARPT'
-    elif code in NATFIX_NAVAID:
-        wpt_type = 'NAVAID'
-    else:
-        wpt_type = 'UNKNOWN'
-    return wpt_type
-    
-def natfix2shp(in_file, out_file):
-    """ Converts NASR FAA NATFIX file to shapefile
-    :param in_file: string, input file
-    :param out_file: string, output file
-    """
-    crs = QgsCoordinateReferenceSystem()
-    crs.createFromId(4326) # TODO - check refernce system of NATFIX file
-    nfix_fields = QgsFields()
-    nfix_fields.append(QgsField("NFIX_ID", QVariant.String))      # FIX/NAVAID/AIRPORT ID
-    nfix_fields.append(QgsField("NFIX_LAT_DMS", QVariant.String)) # FIX/NAVAID/AIRPORT LATITUDE
-    nfix_fields.append(QgsField("NFIX_LON_DMS", QVariant.String)) # FIX/NAVAID/AIRPORT LONGITUDE
-    nfix_fields.append(QgsField("NFIX_R_COD", QVariant.String))   # ICAO REGION CODE
-    nfix_fields.append(QgsField("NFIX_TYPE", QVariant.String))    # FIX/NAVAID TYPE OR STRING "ARPT"
-    nfix_fields.append(QgsField("WPT_TYPE", QVariant.String))     # FIX/NAVAID TYPE OR STRING "ARPT"
-    nfix_fields.append(QgsField("NFIX_CYCLE", QVariant.String))   # Cycle
-    
-    writer = QgsVectorFileWriter(out_file, "CP1250", nfix_fields, QGis.WKBPoint, crs, "ESRI Shapefile")
-        
-    feat = QgsFeature()
-    
-    with open(in_file, 'r') as NFIX_file:
-            line_nr = -1
-            for line in NFIX_file:
-                try:
-                    line_nr += 1
-                    if line_nr < 2:   # Skip first 2 lines
-                        continue
-                    else:
-                        id = line[2:8].rstrip()
-                        lat_dms = line[8:16]
-                        
-                        lat_d = lat_dms[0:2]
-                        lat_m = lat_dms[2:4]
-                        lat_s = lat_dms[4:6]
-                        lat_h = lat_dms[6]
-                            
-                        lat_dd = float(lat_d) + float(lat_m)/60 + float(lat_s)/3600
-                        if lat_h == 'S':
-                            lat_dd = -lat_dd
-                            
-                        lon_dms = line[16:24]
-                        lon_d = lon_dms[0:3]
-                        lon_m = lon_dms[3:5]
-                        lon_s = lon_dms[5:7]
-                        lon_h = lon_dms[7]
-                        
-                        lon_dd = float(lon_d) + float(lon_m)/60 + float(lon_s)/3600
-                        if lon_h == 'W':
-                            lon_dd = -lon_dd
-
-                        reg_cod = line[34:36]
-                        nfix_type = line[37:45].rstrip()
-                        wpt_type = decode_natfix_wpt_type(nfix_type)
-                            
-
-                        feat.setGeometry(QgsGeometry.fromPoint(QgsPoint(lon_dd, lat_dd)))
-                        feat.setAttributes([id,
-                                            lat_dms,
-                                            lon_dms,
-                                            reg_cod,
-                                            nfix_type,
-                                            wpt_type,
-                                            ""]) # TO DO: reading cycle date from NATFIX file
-
-                        writer.addFeature(feat)
-                except:
-                    pass
-
-    del writer
-    return
 
 def regulatory_awy2awy_shp(in_file, out_file):
     """ Converts FAA NASR Regulatory AWY file to shapefile, exctracts only whole awy as polyline with awy_id as attribute
@@ -385,134 +301,6 @@ def regulatory_awy2wpt_shp(in_file, out_file):
     return
 
     
-def apt2apt_shp(input_file, output_file):
-    crs = QgsCoordinateReferenceSystem()
-    crs.createFromId(4326) # TODO - check refernce system of AWY file
-    apt_fields = QgsFields()
-    apt_fields.append(QgsField("SITE_NR", QVariant.String))    # Landing facility site number
-    apt_fields.append(QgsField("LOC_ID", QVariant.String))     # Location identifier
-    apt_fields.append(QgsField("EFF_DATE", QVariant.String))   # Information effective date
-    apt_fields.append(QgsField("C_NAME", QVariant.String))     # Associated city name
-    apt_fields.append(QgsField("O_NAME", QVariant.String))     # Official facility name
-    apt_fields.append(QgsField("LAT_DMS", QVariant.String))       # Airport reference point latiitude (formatted)
-    apt_fields.append(QgsField("LON_DMS", QVariant.String))       # Airport reference point latiitude (formatted)
-    apt_fields.append(QgsField("ELEV_FEET", QVariant.String))     # Airport elevation in feet
-    apt_fields.append(QgsField("MAG_VAR", QVariant.String))       # Magnetic variation and direction
-    writer = QgsVectorFileWriter(output_file, "CP1250", apt_fields, QGis.WKBPoint, crs, "ESRI Shapefile")
-    # Set initial values
-    feat = QgsFeature()
-    
-    with open(input_file, 'r') as in_file:
-        for line in in_file:
-            rec_type = line[0:3]   # Record type
-            if rec_type == 'APT':
-                site_nr = line[3:14].rstrip()    # Landing facility site number
-                loc_ident = line[27:31].rstrip() # Location identifier
-                eff_date = line[31:41].rstrip()  # Information effective date
-                c_name = line[93:133].rstrip()   # Associated city name
-                o_name = line[133:183].rstrip()  # Official facility name
-                lat_dms = line[523:538].rstrip() # Airport reference point latiitude (formatted)
-                lon_dms = line[550:565].rstrip() # Airport reference point longitude (formatted)
-                elev_feet = line[578:585].lstrip() # Airport elevation in feet
-                mag_var = line[586:589].rstrip()   # Magnetic variation and direction
-
-                lat_d = lat_dms[0:2]
-                lat_m = lat_dms[3:5]
-                lat_s = lat_dms[6:len(lat_dms) - 1]
-                                        
-                lon_d = lon_dms[0:3]
-                lon_m = lon_dms[4:6]
-                lon_s = lon_dms[7:len(lon_dms) - 1]
-
-                lat_dd = float(lat_d) + float(lat_m)/60 + float(lat_s)/3600
-                lon_dd = float(lon_d) + float(lon_m)/60 + float(lon_s)/3600
-                
-                feat.setGeometry(QgsGeometry.fromPoint(QgsPoint(-lon_dd, lat_dd)))
-                feat.setAttributes([site_nr,
-                                    loc_ident,
-                                    eff_date,
-                                    c_name,
-                                    o_name,
-                                    lat_dms,
-                                    lon_dms,
-                                    elev_feet,
-                                    mag_var])
-                writer.addFeature(feat)
-
-    return
-
-def apt2rwy_shp(input_file, output_file):
-    crs = QgsCoordinateReferenceSystem()
-    crs.createFromId(4326) # TODO - check refernce system of AWY file
-    apt_fields = QgsFields()
-    apt_fields.append(QgsField("SITE_NR", QVariant.String))    # Landing facility site number
-    apt_fields.append(QgsField("RWY_ID", QVariant.String))     # Location identifier
-    apt_fields.append(QgsField("LENGTH", QVariant.String))   # Information effective date
-    apt_fields.append(QgsField("WIDTH", QVariant.String))     # Associated city name
-    apt_fields.append(QgsField("LAT1_DMS", QVariant.String))     # Official facility name
-    apt_fields.append(QgsField("LON1_DMS", QVariant.String))       # Airport reference point latiitude (formatted)
-    apt_fields.append(QgsField("LAT2_DMS", QVariant.String))       # Airport reference point latiitude (formatted)
-    apt_fields.append(QgsField("LON2_DMS", QVariant.String))     # Airport elevation in feet
-    writer = QgsVectorFileWriter(output_file, "CP1250", apt_fields, QGis.WKBLineString, crs, "ESRI Shapefile")
-    # Set initial values
-    feat = QgsFeature()
-    
-    with open(input_file, 'r') as in_file:
-        for line in in_file:
-            rec_type = line[0:3]   # Record type
-            if rec_type == 'RWY':
-                site_nr = line[3:14].rstrip()  # Landing facility site number
-                rwy_id = line[16:23].rstrip() # Runway identification
-                rwy_length = line[23:28].lstrip() # Physical runwey length (nearest foot)
-                rwy_width = line[28:32] # Physical runway width (nearest foor)
-                lat1_dms = line[88:103].rstrip() # Latitude of physical runway end (formatted)
-                lon1_dms = line[115:130].rstrip() # longitude of physical runway end (formatted)
-                lat2_dms = line[310:325].rstrip()
-                lon2_dms = line[337:352].rstrip()
-                
-                lat1_d = lat1_dms[0:2]
-                lat1_m = lat1_dms[3:5]
-                lat1_s = lat1_dms[6:len(lat1_dms) - 1]
-                                        
-                lon1_d = lon1_dms[0:3]
-                lon1_m = lon1_dms[4:6]
-                lon1_s = lon1_dms[7:len(lon1_dms) - 1]
-
-                
-                
-                lat2_d = lat2_dms[0:2]
-                lat2_m = lat2_dms[3:5]
-                lat2_s = lat2_dms[6:len(lat2_dms) - 1]
-                                        
-                lon2_d = lon2_dms[0:3]
-                lon2_m = lon2_dms[4:6]
-                lon2_s = lon2_dms[7:len(lon2_dms) - 1]
-                try:
-                
-                    lat1_dd = float(lat1_d) + float(lat1_m)/60 + float(lat1_s)/3600
-                    lon1_dd = float(lon1_d) + float(lon1_m)/60 + float(lon1_s)/3600
-                
-                    lat2_dd = float(lat2_d) + float(lat2_m)/60 + float(lat2_s)/3600
-                    lon2_dd = float(lon2_d) + float(lon2_m)/60 + float(lon2_s)/3600
-
-                    p1 = QgsPoint(-lon1_dd, lat1_dd)
-                    p2 = QgsPoint(-lon2_dd, lat2_dd)
-                
-                
-                    feat.setGeometry(QgsGeometry.fromPolyline([p1, p2]))
-                            
-                    feat.setAttributes([site_nr,
-                                                    rwy_id,
-                                                    rwy_length,
-                                                    rwy_width,
-                                                    lat1_dms,
-                                                    lon1_dms])
-                    writer.addFeature(feat)
-                except:
-                    continue
-        
-    return
-    
 class faa_nasr2shp:
     """QGIS Plugin Implementation."""
 
@@ -676,15 +464,6 @@ class faa_nasr2shp:
         elif self.dlg.cbeNasrFile.currentIndex() == 1:
             self.input_file = QFileDialog.getOpenFileName(self.dlg, "Select input file ", "", '*.txt')
             self.dlg.leInputFile.setText(self.input_file)
-        elif self.dlg.cbeNasrFile.currentIndex() == 2:
-            self.input_file = QFileDialog.getOpenFileName(self.dlg, "Select input file ", "", '*.txt')
-            self.dlg.leInputFile.setText(self.input_file)
-        elif self.dlg.cbeNasrFile.currentIndex() == 3:
-            self.input_file = QFileDialog.getOpenFileName(self.dlg, "Select input file ", "", '*.txt')
-            self.dlg.leInputFile.setText(self.input_file)
-        elif self.dlg.cbeNasrFile.currentIndex() == 4:
-            self.input_file = QFileDialog.getOpenFileName(self.dlg, "Select input file ", "", '*.txt')
-            self.dlg.leInputFile.setText(self.input_file)
         # TODO - other types of NASR data files
         return
     
@@ -696,16 +475,10 @@ class faa_nasr2shp:
         
     def faa_nasr2shp(self):
         # TO DO: input validation
-        if self.dlg.cbeNasrFile.currentIndex() == 0: # NATIFX file
-            natfix2shp(self.input_file, self.output_file)
-        elif self.dlg.cbeNasrFile.currentIndex() == 1: # AWY file - awys
+        if self.dlg.cbeNasrFile.currentIndex() == 0: # AWY file - awys
             regulatory_awy2awy_shp(self.input_file, self.output_file)
-        elif self.dlg.cbeNasrFile.currentIndex() == 2: # seg
+        elif self.dlg.cbeNasrFile.currentIndex() == 1: # seg
             regulatory_awy2awy_segment_shp(self.input_file, self.output_file)
-        elif self.dlg.cbeNasrFile.currentIndex() == 3: # APT - to Airport data
-            apt2apt_shp(self.input_file, self.output_file)
-        elif self.dlg.cbeNasrFile.currentIndex() == 4: # APT - to Airport data
-            apt2rwy_shp(self.input_file, self.output_file)
         return
     def run(self):
         """Run method that performs all the real work"""
