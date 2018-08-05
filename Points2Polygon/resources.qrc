@@ -1,5 +1,0 @@
-<RCC>
-    <qresource prefix="/plugins/Points2Polygon" >
-        <file>icon.png</file>
-    </qresource>
-</RCC>
