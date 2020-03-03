@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h2>Extctract coordinates to nicely formatted text :)</h2>
+<textarea id="inputText" rows = "15" cols = "60">
+</textarea>
+
+<button type="button" onclick="extractCoordinates()">Get coordintes</button>
+
+<textarea id="outputText" rows = "15" cols = "60">
+</textarea>
+
+
+<script>
+
+var coords = ["512251N 0292857E",  "513114N 0294326E", "512930N 0294308E",  "512710N 0294410E", "512602N 0294745E"];
+
+coordPairPattern = /[0-9]{6}[NS]\s[0-9]{7}[EW]/g
+
+function getPlainCoordsText() {
+  return document.getElementById("inputText").value;
+}
+
+function getCoordsList(plainText) {
+	coordsList = plainText.match(coordPairPattern);
+	return coordsList;
+}
+
+function suffixToPrefix(coord) {
+	suffix = coord.charAt(coord.length - 1);
+	coordWithoutSuffix = coord.slice(0, coord.length - 1);
+	coordPrefix = suffix + coordWithoutSuffix;
+	return coordPrefix;
+}
+
+function getPrefixCoordList(suffixCoordList) {
+	prefixCoords = [];
+	var i;
+	for (i = 0; i < suffixCoordList.length; i++) {
+		coordPair = suffixCoordList[i].split(' ');
+		lat = coordPair[0];
+		lon = coordPair[1];
+		prefixLat = suffixToPrefix(lat);
+		prefixLon = suffixToPrefix(lon);
+		prefixCoord = prefixLat + " " + prefixLon;
+		prefixCoords.push(prefixCoord);
+	}
+	return prefixCoords;
+}
+
+function getFormattedCoords(coords_list) {
+	var text = "";
+	var i;
+	for (i = 0; i < coords_list.length; i++) {
+		text += coords_list[i] + "\n";
+	}
+	return text;
+}
+
+function extractCoordinates() {
+	//x = getPlainCoordsText()
+	//mlist = getCoordsList(x)
+	y = suffixToPrefix("0301735E");
+	
+	plainCoords = getPlainCoordsText();
+	suffixCoordList = getCoordsList(plainCoords);
+	prefixCorrdList = getPrefixCoordList(suffixCoordList);
+	formattedPrefixCoordList = getFormattedCoords(prefixCorrdList);
+	document.getElementById("outputText").value= formattedPrefixCoordList;
+}
+
+
+
+
+</script>
+
+</body>
+</html>
